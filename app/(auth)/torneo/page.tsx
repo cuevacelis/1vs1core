@@ -1,15 +1,15 @@
 "use client";
 
+import { formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
 import { Calendar, FileText, Plus, Trophy, Users } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTournamentsListQuery } from "./_components/services/use-tournaments-list.query";
-import { Badge } from "@/components/ui/badge";
-import { formatDistanceToNow } from "date-fns";
-import { es } from "date-fns/locale";
 
 type TabValue = "all" | "active" | "upcoming" | "completed";
 
@@ -21,14 +21,20 @@ export default function TournamentsPage() {
     activeTab === "all"
       ? {}
       : activeTab === "active"
-      ? { tournament_state: "active" }
-      : activeTab === "upcoming"
-      ? { tournament_state: "draft" }
-      : { tournament_state: "completed" }
+        ? { tournament_state: "active" }
+        : activeTab === "upcoming"
+          ? { tournament_state: "draft" }
+          : { tournament_state: "completed" },
   );
 
   const getTournamentStateLabel = (state: string) => {
-    const labels: Record<string, { text: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+    const labels: Record<
+      string,
+      {
+        text: string;
+        variant: "default" | "secondary" | "destructive" | "outline";
+      }
+    > = {
       draft: { text: "Borrador", variant: "secondary" },
       active: { text: "Activo", variant: "default" },
       in_progress: { text: "En Progreso", variant: "outline" },
@@ -69,8 +75,8 @@ export default function TournamentsPage() {
                       activeTab === "active"
                         ? "activos"
                         : activeTab === "upcoming"
-                        ? "próximos"
-                        : "completados"
+                          ? "próximos"
+                          : "completados"
                     }`}
               </p>
               {activeTab === "all" && (
@@ -90,7 +96,9 @@ export default function TournamentsPage() {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {tournaments.map((tournament) => {
-          const stateLabel = getTournamentStateLabel(tournament.tournament_state);
+          const stateLabel = getTournamentStateLabel(
+            tournament.tournament_state,
+          );
           return (
             <Link key={tournament.id} href={`/torneo/${tournament.id}`}>
               <Card className="border-2 hover:border-primary transition-colors cursor-pointer h-full">
@@ -130,10 +138,13 @@ export default function TournamentsPage() {
                         <div className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
                           <span>
-                            {formatDistanceToNow(new Date(tournament.start_date), {
-                              addSuffix: true,
-                              locale: es,
-                            })}
+                            {formatDistanceToNow(
+                              new Date(tournament.start_date),
+                              {
+                                addSuffix: true,
+                                locale: es,
+                              },
+                            )}
                           </span>
                         </div>
                       )}
@@ -171,7 +182,11 @@ export default function TournamentsPage() {
         </div>
 
         {/* Tabs for filtering */}
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabValue)} className="w-full">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as TabValue)}
+          className="w-full"
+        >
           <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
             <TabsTrigger value="all">Todos</TabsTrigger>
             <TabsTrigger value="active">Activos</TabsTrigger>

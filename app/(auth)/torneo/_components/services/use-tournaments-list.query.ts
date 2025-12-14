@@ -11,7 +11,12 @@ interface UseTournamentsListQueryConfig {
 }
 
 interface TournamentsListParams {
-  tournament_state?: "draft" | "active" | "in_progress" | "completed" | "cancelled";
+  tournament_state?:
+    | "draft"
+    | "active"
+    | "in_progress"
+    | "completed"
+    | "cancelled";
   limit?: number;
   offset?: number;
 }
