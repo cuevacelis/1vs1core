@@ -15,22 +15,20 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { client } from "@/lib/orpc/orpc.client";
+import { useLoginMutation } from "./_components/services/use-login.mutation";
 
 export default function Home() {
   const [accessCode, setAccessCode] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const loginMutation = useLoginMutation();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError("");
 
     try {
-      // oRPC client returns the data directly, not a Response object
-      await client.auth.login({ accessCode });
+      await loginMutation.mutateAsync({ accessCode });
 
       // Redirect to dashboard after successful login
       router.push("/dashboard");
@@ -38,8 +36,6 @@ export default function Home() {
     } catch (err) {
       console.error("Login error:", err);
       setError("Código de acceso inválido. Por favor, intenta de nuevo.");
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -94,11 +90,13 @@ export default function Home() {
 
                 <Button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={loginMutation.isPending}
                   className="w-full h-11"
                   size="lg"
                 >
-                  {isLoading ? "Ingresando..." : "Ingresar al Torneo"}
+                  {loginMutation.isPending
+                    ? "Ingresando..."
+                    : "Ingresar al Torneo"}
                 </Button>
               </form>
             </CardContent>

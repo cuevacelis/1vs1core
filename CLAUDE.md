@@ -220,12 +220,321 @@ Handle these transitions in match-related procedures and WebSocket messages.
 2. Run migration: `npx tsx lib/db/migrate.ts`
 3. Update TypeScript types in `lib/db/types.ts` to match schema
 
+## TanStack Query Patterns
+
+### Query Hook Organization
+
+**CRITICAL**: Follow Next.js App Router file structure patterns for query hooks:
+
+- **Location**: Place query hooks in `_components/services/` folder at the page level. All hooks for a page should be consolidated in a single services directory.
+- **NO Barrel Exports**: Do NOT create `index.ts` files to re-export hooks
+- **Colocation**: Each hook should live in the page's `_components/services/` directory
+- **Direct Imports**: Import hooks directly from their service files
+- **Flexibility**: For very large pages with many distinct sections, you MAY create nested `_components/[section]/services/` folders, but prefer the flat structure at `_components/services/` by default
+
+### Query Hook Structure
+
+**IMPORTANT**: This project uses `@orpc/tanstack-query` for TanStack Query integration. Query keys are automatically managed by oRPC.
+
+Each query hook file MUST follow this pattern:
+
+```typescript
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { orpc } from "@/lib/orpc/orpc.client";
+
+interface UseEntityQueryConfig {
+  enabled?: boolean;
+  staleTime?: number;
+  gcTime?: number;
+  refetchOnWindowFocus?: boolean;
+}
+
+/**
+ * Query hook to fetch entity data
+ * Uses oRPC TanStack Query integration for automatic query key management
+ *
+ * @param config - Optional query configuration
+ * @returns Entity data
+ *
+ * @example
+ * ```tsx
+ * const { data, isLoading } = useEntityQuery()
+ * ```
+ */
+export function useEntityQuery(config?: UseEntityQueryConfig) {
+  return useQuery(
+    orpc.entity.get.queryOptions({
+      enabled: config?.enabled,
+      staleTime: config?.staleTime ?? 30 * 1000, // 30 seconds default
+      gcTime: config?.gcTime,
+      refetchOnWindowFocus: config?.refetchOnWindowFocus ?? true,
+    }),
+  );
+}
+```
+
+**CRITICAL**: Pass all options directly to `queryOptions()`, NOT using spread operator.
+
+**For queries with parameters**:
+
+```typescript
+export function useEntityDetailQuery(id: number, config?: UseEntityDetailQueryConfig) {
+  return useQuery(
+    orpc.entity.getById.queryOptions({
+      input: { id },
+      enabled: config?.enabled ?? !!id,  // Auto-disable if no ID
+      staleTime: config?.staleTime ?? 30 * 1000,
+      gcTime: config?.gcTime,
+      refetchOnWindowFocus: config?.refetchOnWindowFocus ?? true,
+    }),
+  );
+}
+```
+
+**For queries with optional parameters**:
+
+```typescript
+interface TournamentsListParams {
+  status?: "active" | "completed";
+  limit?: number;
+  offset?: number;
+}
+
+export function useTournamentsListQuery(
+  params?: TournamentsListParams,
+  config?: UseTournamentsListQueryConfig,
+) {
+  return useQuery(
+    orpc.tournaments.list.queryOptions({
+      input: params || {},
+      enabled: config?.enabled,
+      staleTime: config?.staleTime ?? 30 * 1000,
+      gcTime: config?.gcTime,
+      refetchOnWindowFocus: config?.refetchOnWindowFocus ?? true,
+    }),
+  );
+}
+```
+
+**For real-time queries with polling**:
+
+```typescript
+interface UseMatchDetailQueryConfig {
+  enabled?: boolean;
+  staleTime?: number;
+  gcTime?: number;
+  refetchOnWindowFocus?: boolean;
+  refetchInterval?: number | false;  // Add polling support
+}
+
+export function useMatchDetailQuery(matchId: number, config?: UseMatchDetailQueryConfig) {
+  return useQuery(
+    orpc.matches.getById.queryOptions({
+      input: { id: matchId },
+      enabled: config?.enabled ?? !!matchId,
+      staleTime: config?.staleTime ?? 10 * 1000,
+      gcTime: config?.gcTime,
+      refetchOnWindowFocus: config?.refetchOnWindowFocus ?? true,
+      refetchInterval: config?.refetchInterval ?? 5000, // Poll every 5 seconds by default
+    }),
+  );
+}
+```
+
+**Key Benefits**:
+- ✅ No manual query key management
+- ✅ Automatic key generation based on procedure path and inputs
+- ✅ Built-in invalidation helpers: `queryClient.invalidateQueries({ queryKey: orpc.entity.key() })`
+- ✅ SSR support with hydration
+- ✅ Type-safe from backend to frontend
+
+### File Naming Convention
+
+Follow TanStack Query naming patterns:
+
+- **List queries**: `use-[entity]-list.query.ts` or `use-[entity].query.ts` (if only one query)
+- **Detail queries**: `use-[entity]-detail.query.ts` or `use-[entity]-by-id.query.ts`
+- **Special queries**: `use-[entity]-[context].query.ts` (e.g., `use-notes-table.query.ts`)
+- **Mutations**: `use-[entity]-create.mutation.ts`, `use-[entity]-update.mutation.ts`, etc.
+
+### Example Directory Structure
+
+**Preferred Pattern** (Consolidated services at page level):
+
+```
+app/(auth)/perfil/
+├── _components/
+│   ├── services/
+│   │   ├── use-user-profile.query.ts
+│   │   └── use-user-match-statistics.query.ts
+│   ├── profile-info/
+│   │   └── profile-info.tsx
+│   └── statistics/
+│       └── statistics.tsx
+└── page.tsx
+```
+
+**Alternative Pattern** (For very large pages with many sections):
+
+```
+app/(auth)/dashboard/
+├── _components/
+│   ├── header/
+│   │   └── services/
+│   │       └── use-user-me.query.ts
+│   ├── stats-cards/
+│   │   └── services/
+│   │       └── use-user-stats.query.ts
+│   ├── active-match/
+│   │   └── services/
+│   │       └── use-match-active.query.ts
+│   ├── recent-matches/
+│   │   └── services/
+│   │       └── use-user-recent-matches.query.ts
+│   └── my-tournaments/
+│       └── services/
+│           └── use-user-tournaments.query.ts
+└── page.tsx
+```
+
+### Import Pattern
+
+**Preferred Pattern** (Consolidated services):
+
+```typescript
+// CORRECT - Direct imports from consolidated services folder
+import { useUserProfileQuery } from "./_components/services/use-user-profile.query";
+import { useUserMatchStatisticsQuery } from "./_components/services/use-user-match-statistics.query";
+
+// WRONG - No barrel exports
+import { useUserProfileQuery, useUserMatchStatisticsQuery } from "./_components/services";
+```
+
+**Alternative Pattern** (Nested services):
+
+```typescript
+// CORRECT - Direct imports from nested service files
+import { useMatchActiveQuery } from "./_components/active-match/services/use-match-active.query";
+import { useUserMeQuery } from "./_components/header/services/use-user-me.query";
+
+// WRONG - No barrel exports
+import { useMatchActiveQuery, useUserMeQuery } from "./_components/queries";
+```
+
+### Stale Time Guidelines
+
+Set appropriate stale times based on data volatility:
+
+- **User Profile**: 5 minutes (rarely changes)
+- **Statistics**: 30 seconds (moderate updates)
+- **Active Match**: 10 seconds (frequent updates needed)
+- **Lists/Collections**: 30 seconds (general purpose)
+
+### Mutations with oRPC
+
+**Mutation Hook Pattern**:
+
+```typescript
+"use client";
+
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { orpc } from "@/lib/orpc/orpc.client";
+
+export function useCreateTournamentMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    ...orpc.tournaments.create.mutationOptions(),
+    onSuccess: () => {
+      // Invalidate related queries
+      queryClient.invalidateQueries({ queryKey: orpc.tournaments.key() });
+    },
+  });
+}
+```
+
+**Usage in components**:
+
+```typescript
+const createMutation = useCreateTournamentMutation();
+
+const handleCreate = async () => {
+  await createMutation.mutateAsync({ name: "New Tournament" });
+};
+```
+
+### Server-Side Rendering (SSR) with oRPC
+
+**Server Component (page.tsx)**:
+
+```typescript
+import { getQueryClient, HydrateClient } from "@/lib/query/hydration";
+import { orpc } from "@/lib/orpc/orpc.client";
+import { ClientComponent } from "./_components/client-component";
+
+export default function Page() {
+  const queryClient = getQueryClient();
+
+  // Prefetch data on the server
+  queryClient.prefetchQuery(
+    orpc.users.me.queryOptions()
+  );
+
+  return (
+    <HydrateClient client={queryClient}>
+      <ClientComponent />
+    </HydrateClient>
+  );
+}
+```
+
+**Client Component**:
+
+```typescript
+"use client";
+
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { orpc } from "@/lib/orpc/orpc.client";
+
+export function ClientComponent() {
+  const { data } = useSuspenseQuery(orpc.users.me.queryOptions());
+
+  return <div>{data.name}</div>;
+}
+```
+
+### Query Invalidation Patterns
+
+```typescript
+import { useQueryClient } from "@tanstack/react-query";
+import { orpc } from "@/lib/orpc/orpc.client";
+
+const queryClient = useQueryClient();
+
+// Invalidate all queries for a router
+queryClient.invalidateQueries({ queryKey: orpc.users.key() });
+
+// Invalidate specific procedure
+queryClient.invalidateQueries({ queryKey: orpc.users.me.queryKey() });
+
+// Invalidate procedure with specific input
+queryClient.invalidateQueries({
+  queryKey: orpc.tournaments.getById.queryKey({ input: { id: 123 } })
+});
+```
+
 ## Important Notes
 
 - **Package Installation**: Always use `--legacy-peer-deps` flag due to oRPC version conflicts
 - **No ORM**: Database access is intentionally raw SQL - do not introduce ORMs
 - **Type Safety**: oRPC provides end-to-end type safety - the `AppRouter` type is the contract
+- **TanStack Query Integration**: This project uses `@orpc/tanstack-query` for automatic query key management. ALWAYS use `orpc.*.*.queryOptions()` instead of manual query keys
 - **Client API Calls**: NEVER use direct API routes (`/api/*`). ALWAYS use the oRPC client (`client.auth.login()`, `client.auth.logout()`, etc.) for type-safe API communication
+- **oRPC Utilities**: Use `orpc` from `@/lib/orpc/orpc.client` for queries/mutations. Use `client` for direct API calls
 - **Role Checks**: Admin-only pages should use `adminOrpc` in APIs and verify roles in UI
 - **WebSocket Singleton**: The WebSocket server is a singleton - use `getWebSocketServer()` to access it
 - **Session Management**: Sessions are cookie-based, not JWT - use `lib/auth/session.ts` helpers
+- **Query Hooks**: MUST follow TanStack Query patterns with `orpc.*.*.queryOptions()` - NO manual query keys, NO barrel exports
+- **SSR Support**: Use `getQueryClient()` and `HydrateClient` from `@/lib/query/hydration` for server-side rendering with automatic serialization

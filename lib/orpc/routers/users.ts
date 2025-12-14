@@ -281,6 +281,7 @@ export const usersRouter = orpc.router({
       const users = await query(
         `SELECT u.id, u.name, u.short_name, u.status, u.suspension_status,
                 u.url_image, u.creation_date,
+                p.first_name, p.second_name, p.paternal_last_name, p.maternal_last_name,
                 COALESCE(
                   json_agg(
                     json_build_object('id', r.id, 'name', r.name, 'description', r.description)
@@ -290,12 +291,203 @@ export const usersRouter = orpc.router({
          FROM users u
          LEFT JOIN role_user ru ON u.id = ru.user_id AND ru.status = true
          LEFT JOIN role r ON ru.role_id = r.id
+         LEFT JOIN person p ON u.persona_id = p.id
          WHERE u.id = $1
-         GROUP BY u.id`,
+         GROUP BY u.id, p.id`,
         [userId],
       );
 
-      return users[0];
+      const user = users[0];
+      if (!user) return null;
+
+      // Structure the response with person data nested
+      return {
+        id: user.id,
+        name: user.name,
+        short_name: user.short_name,
+        status: user.status,
+        suspension_status: user.suspension_status,
+        url_image: user.url_image,
+        creation_date: user.creation_date,
+        roles: user.roles,
+        person: user.first_name
+          ? {
+              first_name: user.first_name,
+              second_name: user.second_name,
+              paternal_last_name: user.paternal_last_name,
+              maternal_last_name: user.maternal_last_name,
+            }
+          : null,
+      };
+    }),
+
+  // Authenticated: Get my statistics
+  myStats: authedOrpc
+    .route({
+      method: "GET",
+      path: "/users/me/stats",
+      summary: "Get my statistics",
+      description: "Get current user's match statistics and performance",
+      tags: ["users", "stats"],
+    })
+    .handler(async ({ context }) => {
+      const userId = context.user!.id;
+
+      // Get total matches played
+      const totalMatchesResult = await query<{ count: string }>(
+        `SELECT COUNT(*) as count
+         FROM match
+         WHERE (player1_id = $1 OR player2_id = $1)
+         AND match_state = 'completed'`,
+        [userId],
+      );
+
+      // Get wins and losses
+      const winsResult = await query<{ count: string }>(
+        `SELECT COUNT(*) as count
+         FROM match
+         WHERE winner_id = $1
+         AND match_state = 'completed'`,
+        [userId],
+      );
+
+      // Get tournaments joined
+      const tournamentsResult = await query<{ count: string }>(
+        `SELECT COUNT(*) as count
+         FROM tournament_participations
+         WHERE user_id = $1
+         AND participation_state = 'confirmed'`,
+        [userId],
+      );
+
+      // Get recent matches for streak calculation
+      const recentMatches = await query<{
+        id: number;
+        winner_id: number | null;
+      }>(
+        `SELECT id, winner_id
+         FROM match
+         WHERE (player1_id = $1 OR player2_id = $1)
+         AND match_state = 'completed'
+         ORDER BY match_date DESC
+         LIMIT 10`,
+        [userId],
+      );
+
+      const totalMatches = parseInt(totalMatchesResult[0]?.count || "0", 10);
+      const wins = parseInt(winsResult[0]?.count || "0", 10);
+      const losses = totalMatches - wins;
+      const winRate = totalMatches > 0 ? (wins / totalMatches) * 100 : 0;
+
+      // Calculate current streak
+      let currentStreak = 0;
+      for (const match of recentMatches) {
+        if (match.winner_id === userId) {
+          currentStreak++;
+        } else {
+          break;
+        }
+      }
+
+      return {
+        totalMatches,
+        wins,
+        losses,
+        winRate: Math.round(winRate),
+        currentStreak,
+        tournamentsJoined: parseInt(tournamentsResult[0]?.count || "0", 10),
+      };
+    }),
+
+  // Authenticated: Get my recent matches
+  myRecentMatches: authedOrpc
+    .route({
+      method: "GET",
+      path: "/users/me/matches",
+      summary: "Get my recent matches",
+      description: "Get current user's recent match history",
+      tags: ["users", "matches"],
+    })
+    .input(
+      z.object({
+        limit: z.number().default(10),
+        offset: z.number().default(0),
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const userId = context.user!.id;
+
+      const matches = await query(
+        `SELECT m.*,
+                t.name as tournament_name,
+                p1.name as player1_name,
+                p2.name as player2_name,
+                w.name as winner_name,
+                mc1.champion_id as player1_champion_id,
+                mc2.champion_id as player2_champion_id,
+                c1.name as player1_champion_name,
+                c2.name as player2_champion_name
+         FROM match m
+         INNER JOIN tournament t ON m.tournament_id = t.id
+         INNER JOIN users p1 ON m.player1_id = p1.id
+         INNER JOIN users p2 ON m.player2_id = p2.id
+         LEFT JOIN users w ON m.winner_id = w.id
+         LEFT JOIN match_champions mc1 ON m.id = mc1.match_id AND mc1.player_id = m.player1_id
+         LEFT JOIN match_champions mc2 ON m.id = mc2.match_id AND mc2.player_id = m.player2_id
+         LEFT JOIN champion c1 ON mc1.champion_id = c1.id
+         LEFT JOIN champion c2 ON mc2.champion_id = c2.id
+         WHERE (m.player1_id = $1 OR m.player2_id = $1)
+         AND m.match_state = 'completed'
+         ORDER BY m.match_date DESC
+         LIMIT $2 OFFSET $3`,
+        [userId, input.limit, input.offset],
+      );
+
+      return matches.map((match) => ({
+        ...match,
+        opponent_name:
+          match.player1_id === userId ? match.player2_name : match.player1_name,
+        my_champion:
+          match.player1_id === userId
+            ? match.player1_champion_name
+            : match.player2_champion_name,
+        result: match.winner_id === userId ? "Victoria" : "Derrota",
+      }));
+    }),
+
+  // Authenticated: Get my tournaments
+  myTournaments: authedOrpc
+    .route({
+      method: "GET",
+      path: "/users/me/tournaments",
+      summary: "Get my tournaments",
+      description: "Get tournaments the current user is participating in",
+      tags: ["users", "tournaments"],
+    })
+    .input(
+      z.object({
+        limit: z.number().default(10),
+        offset: z.number().default(0),
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const userId = context.user!.id;
+
+      const tournaments = await query(
+        `SELECT t.*,
+                tp.registration_date,
+                tp.participation_state,
+                g.name as game_name
+         FROM tournament_participations tp
+         INNER JOIN tournament t ON tp.tournament_id = t.id
+         INNER JOIN game g ON t.game_id = g.id
+         WHERE tp.user_id = $1
+         ORDER BY tp.registration_date DESC
+         LIMIT $2 OFFSET $3`,
+        [userId, input.limit, input.offset],
+      );
+
+      return tournaments;
     }),
 });
 

@@ -1,6 +1,7 @@
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { RouterClient } from "@orpc/server";
+import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import type { AppRouter } from "./router";
 
 declare global {
@@ -23,3 +24,14 @@ const link = new RPCLink({
  */
 export const client: RouterClient<AppRouter> =
   globalThis.$client ?? createORPCClient(link);
+
+/**
+ * TanStack Query utilities for oRPC
+ * Provides queryOptions, mutationOptions, and query key management
+ *
+ * Usage:
+ * - Queries: useQuery(orpc.users.me.queryOptions())
+ * - Mutations: useMutation(orpc.auth.login.mutationOptions())
+ * - Keys: queryClient.invalidateQueries({ queryKey: orpc.users.key() })
+ */
+export const orpc = createTanstackQueryUtils(client);
