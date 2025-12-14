@@ -18,7 +18,7 @@ const authRouter = orpc.router({
     .input(
       z.object({
         accessCode: z.string().min(1),
-      })
+      }),
     )
     .handler(async ({ input }) => {
       const { accessCode } = input;
@@ -49,7 +49,7 @@ const authRouter = orpc.router({
         `SELECT r.* FROM role r
          INNER JOIN role_user ru ON r.id = ru.role_id
          WHERE ru.user_id = $1 AND ru.status = true`,
-        [matchedUser.id]
+        [matchedUser.id],
       );
 
       // Create session

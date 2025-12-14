@@ -1,10 +1,10 @@
 "use client";
 
+import { Calendar, FileText, Plus, Trophy, Users } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy, Plus, Calendar, Users, FileText } from "lucide-react";
 
 export default function TournamentsPage() {
   return (

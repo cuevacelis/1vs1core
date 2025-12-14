@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { User, Role } from "../db/types";
+import type { Role, User } from "../db/types";
 
 const SESSION_COOKIE_NAME = "1v1core_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days

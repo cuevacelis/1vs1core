@@ -1,6 +1,6 @@
-import { getPool } from "./config";
 import * as fs from "fs";
 import * as path from "path";
+import { getPool } from "./config";
 
 // Load environment variables from .env file
 const envPath = path.join(__dirname, "../../.env");

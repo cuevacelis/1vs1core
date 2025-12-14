@@ -15,7 +15,7 @@ const gamesRouter = orpc.router({
     })
     .handler(async () => {
       const games = await query<Game>(
-        `SELECT * FROM game WHERE status = true ORDER BY name ASC`
+        `SELECT * FROM game WHERE status = true ORDER BY name ASC`,
       );
 
       return games;
@@ -57,14 +57,14 @@ const gamesRouter = orpc.router({
         name: z.string().min(1).max(100),
         type: z.string().min(1).max(50),
         description: z.string().optional(),
-      })
+      }),
     )
     .handler(async ({ input }) => {
       const result = await query<Game>(
         `INSERT INTO game (name, type, description)
          VALUES ($1, $2, $3)
          RETURNING *`,
-        [input.name, input.type, input.description]
+        [input.name, input.type, input.description],
       );
 
       return result[0];

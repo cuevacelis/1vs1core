@@ -4,7 +4,6 @@ import { Trophy, Users, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -31,7 +30,7 @@ export default function Home() {
 
     try {
       // oRPC client returns the data directly, not a Response object
-      const data = await client.auth.login({ accessCode });
+      await client.auth.login({ accessCode });
 
       // Redirect to dashboard after successful login
       router.push("/dashboard");
@@ -157,36 +156,6 @@ export default function Home() {
                 </p>
               </CardContent>
             </Card>
-          </div>
-
-          {/* Active Tournaments Section */}
-          <div className="mt-16">
-            <h2 className="text-3xl font-bold text-center mb-8">
-              Torneos Activos
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="h-40 bg-linear-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                  <Trophy className="w-16 h-16 text-primary/40" />
-                </div>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg">Torneo de Ejemplo</CardTitle>
-                    <Badge variant="default">Activo</Badge>
-                  </div>
-                  <CardDescription>
-                    Únete a la competencia y demuestra tus habilidades
-                  </CardDescription>
-                </CardHeader>
-                <CardFooter className="flex justify-between text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Users className="w-4 h-4" />
-                    <span>Máx: 32 jugadores</span>
-                  </div>
-                </CardFooter>
-              </Card>
-            </div>
           </div>
         </div>
       </div>

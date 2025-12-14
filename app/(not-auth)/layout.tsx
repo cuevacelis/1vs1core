@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { Trophy } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default function NotAuthLayout({
@@ -25,11 +25,6 @@ export default function NotAuthLayout({
               <Link href="/">
                 <Button variant="ghost" size="sm">
                   Home
-                </Button>
-              </Link>
-              <Link href="/about">
-                <Button variant="ghost" size="sm">
-                  About
                 </Button>
               </Link>
             </div>

@@ -1,7 +1,7 @@
 "use client";
 
-import { use, useState } from "react";
 import { useRouter } from "next/navigation";
+import { use, useState } from "react";
 
 export default function EditTournamentPage({
   params,

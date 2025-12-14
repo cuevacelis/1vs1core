@@ -1,15 +1,9 @@
 "use client";
 
-import * as React from "react";
+import { LayoutDashboard, LogOut, Swords, Trophy, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  Trophy,
-  LayoutDashboard,
-  Swords,
-  User,
-  LogOut,
-} from "lucide-react";
+import * as React from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -97,7 +91,8 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive =
-                  pathname === item.href || pathname?.startsWith(`${item.href}/`);
+                  pathname === item.href ||
+                  pathname?.startsWith(`${item.href}/`);
 
                 return (
                   <SidebarMenuItem key={item.href}>

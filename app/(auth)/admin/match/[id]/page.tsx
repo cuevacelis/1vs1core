@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useEffect, useState } from "react";
 import { useWebSocket } from "@/lib/websocket/client";
 
 export default function AdminMatchViewerPage({
