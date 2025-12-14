@@ -1,4 +1,4 @@
-import { os } from "@orpc/server";
+import { ORPCError, os } from "@orpc/server";
 import type { AppContext } from "./context";
 
 // Base oRPC instance with context
@@ -8,7 +8,9 @@ export const orpc = os.$context<AppContext>();
 export const authMiddleware = orpc.middleware(
   async (options, _input, _output) => {
     if (!options.context.user) {
-      throw new Error("Unauthorized");
+      throw new ORPCError("UNAUTHORIZED", {
+        message: "Debes iniciar sesión para acceder a este recurso",
+      });
     }
     return options.next({ context: options.context });
   },
@@ -18,14 +20,18 @@ export const authMiddleware = orpc.middleware(
 export const roleMiddleware = (requiredRole: string) =>
   orpc.middleware(async (options, _input, _output) => {
     if (!options.context.user) {
-      throw new Error("Unauthorized");
+      throw new ORPCError("UNAUTHORIZED", {
+        message: "Debes iniciar sesión para acceder a este recurso",
+      });
     }
 
     const hasRole = options.context.user.roles.some(
       (role) => role.name === requiredRole,
     );
     if (!hasRole) {
-      throw new Error("Forbidden: Insufficient permissions");
+      throw new ORPCError("FORBIDDEN", {
+        message: `No tienes permisos suficientes. Se requiere el rol de ${requiredRole}`,
+      });
     }
 
     return options.next({ context: options.context });

@@ -64,6 +64,25 @@ CREATE TABLE IF NOT EXISTS game (
     creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Insert default games
+INSERT INTO game (name, type, description) VALUES
+    ('League of Legends', 'MOBA', 'Multiplayer Online Battle Arena - 5v5 team-based strategy game'),
+    ('Dota 2', 'MOBA', 'Multiplayer Online Battle Arena - competitive 5v5 matches'),
+    ('Counter-Strike 2', 'FPS', 'First-Person Shooter - tactical team-based shooter'),
+    ('Valorant', 'FPS', 'Tactical FPS - character-based competitive shooter'),
+    ('Fortnite', 'Battle Royale', 'Battle Royale shooter with building mechanics'),
+    ('Apex Legends', 'Battle Royale', 'Character-based Battle Royale shooter'),
+    ('Rocket League', 'Sports', 'Vehicular soccer game'),
+    ('FIFA', 'Sports', 'Football simulation game'),
+    ('Street Fighter 6', 'Fighting', '1v1 fighting game'),
+    ('Tekken 8', 'Fighting', '3D fighting game'),
+    ('Starcraft II', 'RTS', 'Real-Time Strategy game'),
+    ('Age of Empires IV', 'RTS', 'Historical Real-Time Strategy game'),
+    ('PUBG', 'Battle Royale', 'Battle Royale shooter'),
+    ('Overwatch 2', 'FPS', 'Team-based hero shooter'),
+    ('Call of Duty', 'FPS', 'First-Person Shooter franchise')
+ON CONFLICT (name) DO NOTHING;
+
 -- Tournament table
 CREATE TABLE IF NOT EXISTS tournament (
     id SERIAL PRIMARY KEY,

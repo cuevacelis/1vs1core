@@ -11,7 +11,7 @@ interface UseTournamentsListQueryConfig {
 }
 
 interface TournamentsListParams {
-  status?: "draft" | "active" | "in_progress" | "completed" | "cancelled";
+  tournament_state?: "draft" | "active" | "in_progress" | "completed" | "cancelled";
   limit?: number;
   offset?: number;
 }
@@ -26,7 +26,7 @@ interface TournamentsListParams {
  *
  * @example
  * ```tsx
- * const { data: tournaments } = useTournamentsListQuery({ status: 'active' })
+ * const { data: tournaments } = useTournamentsListQuery({ tournament_state: 'active' })
  * ```
  */
 export function useTournamentsListQuery(
