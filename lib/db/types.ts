@@ -1,12 +1,14 @@
 // Database types
 
+export type EntityState = "active" | "inactive";
+
 export interface Person {
   id: number;
   first_name: string;
   second_name?: string;
   paternal_last_name: string;
   maternal_last_name?: string;
-  status: boolean;
+  state: EntityState;
   creation_date: Date;
   modification_date: Date;
 }
@@ -29,13 +31,14 @@ export function getPersonFullName(
     .trim();
 }
 
+export type UserState = "active" | "suspended" | "banned" | "pending_verification";
+
 export interface User {
   id: number;
   access_code_hash: string;
   name: string;
   short_name?: string;
-  status: boolean;
-  suspension_status?: "suspended" | null;
+  state: UserState;
   persona_id?: number;
   url_image?: string;
   creation_date: Date;
@@ -53,9 +56,18 @@ export interface RoleUser {
   id: number;
   user_id: number;
   role_id: number;
-  status: boolean;
+  state: EntityState;
   creation_date: Date;
   modification_date: Date;
+}
+
+export interface Module {
+  id: number;
+  role_id: number;
+  url_pattern: string;
+  description?: string;
+  state: EntityState;
+  creation_date: Date;
 }
 
 export interface Game {
@@ -63,9 +75,11 @@ export interface Game {
   name: string;
   type: string;
   description?: string;
-  status: boolean;
+  state: EntityState;
   creation_date: Date;
 }
+
+export type TournamentState = "draft" | "active" | "in_progress" | "completed" | "cancelled";
 
 export interface Tournament {
   id: number;
@@ -76,26 +90,32 @@ export interface Tournament {
   end_date?: Date;
   max_participants?: number;
   creator_id: number;
-  status: boolean;
-  tournament_state:
-    | "draft"
-    | "active"
-    | "in_progress"
-    | "completed"
-    | "cancelled";
+  state: TournamentState;
   url_image?: string;
   creation_date: Date;
   modification_date: Date;
 }
+
+export type ParticipationState = "registered" | "confirmed" | "withdrawn";
 
 export interface TournamentParticipation {
   id: number;
   tournament_id: number;
   user_id: number;
   registration_date: Date;
-  status: boolean;
-  participation_state: "registered" | "confirmed" | "withdrawn";
+  state: ParticipationState;
 }
+
+export type MatchState =
+  | "pending"
+  | "active"
+  | "player1_connected"
+  | "player2_connected"
+  | "both_connected"
+  | "in_selection"
+  | "locked"
+  | "completed"
+  | "cancelled";
 
 export interface Match {
   id: number;
@@ -105,17 +125,7 @@ export interface Match {
   player2_id: number;
   winner_id?: number;
   match_date?: Date;
-  status: boolean;
-  match_state:
-    | "pending"
-    | "active"
-    | "player1_connected"
-    | "player2_connected"
-    | "both_connected"
-    | "in_selection"
-    | "locked"
-    | "completed"
-    | "cancelled";
+  state: MatchState;
   creation_date: Date;
   modification_date: Date;
 }
@@ -126,9 +136,17 @@ export interface Champion {
   game_id: number;
   description?: string;
   url_image?: string;
-  status: boolean;
-  ban_status?: "banned" | null;
+  state: EntityState;
   creation_date: Date;
+}
+
+export interface TournamentChampionBan {
+  id: number;
+  tournament_id: number;
+  champion_id: number;
+  banned_by?: number;
+  ban_date: Date;
+  reason?: string;
 }
 
 export interface MatchChampion {

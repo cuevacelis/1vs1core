@@ -1,5 +1,5 @@
-import * as fs from "fs";
-import * as path from "path";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { getPool } from "./config";
 
 // Load environment variables from .env file
@@ -27,20 +27,62 @@ console.log("  NAME:", process.env.DATABASE_NAME);
 console.log("  USER:", process.env.DATABASE_USER);
 console.log("  SSL:", process.env.DATABASE_SSL);
 
+/**
+ * Migration files are executed in alphabetical order.
+ * Naming convention: XXX_description.sql where XXX is a 3-digit number
+ *
+ * Migration order:
+ * 001_types.sql          - ENUM types
+ * 002_tables.sql         - Table definitions
+ * 003_indexes.sql        - Index definitions
+ * 004_functions_shared.sql - Shared/utility functions and triggers
+ * 005_functions_auth.sql   - Authentication functions
+ * 006_functions_user.sql   - User management functions
+ * 007_functions_role.sql   - Role management functions
+ * 008_seed_data.sql        - Initial data
+ */
 async function runMigrations() {
   const pool = getPool();
 
   try {
     console.log("Starting database migration...");
 
-    const schemaPath = path.join(__dirname, "schema.sql");
-    const schema = fs.readFileSync(schemaPath, "utf-8");
+    const migrationsDir = path.join(__dirname, "migrations");
 
-    await pool.query(schema);
+    // Check if migrations directory exists
+    if (!fs.existsSync(migrationsDir)) {
+      throw new Error(`Migrations directory not found: ${migrationsDir}`);
+    }
 
-    console.log("Migration completed successfully!");
+    // Get all SQL files in the migrations directory
+    const migrationFiles = fs
+      .readdirSync(migrationsDir)
+      .filter((file) => file.endsWith(".sql"))
+      .sort(); // Sort alphabetically to ensure correct execution order
+
+    if (migrationFiles.length === 0) {
+      throw new Error("No migration files found in migrations directory");
+    }
+
+    console.log(`Found ${migrationFiles.length} migration file(s):`);
+    for (const file of migrationFiles) {
+      console.log(`  - ${file}`);
+    }
+    console.log("");
+
+    // Execute each migration file in order
+    for (const file of migrationFiles) {
+      const filePath = path.join(migrationsDir, file);
+      const sql = fs.readFileSync(filePath, "utf-8");
+
+      console.log(`Executing migration: ${file}...`);
+      await pool.query(sql);
+      console.log(`✓ ${file} completed`);
+    }
+
+    console.log("\n✅ All migrations completed successfully!");
   } catch (error) {
-    console.error("Migration failed:", error);
+    console.error("\n❌ Migration failed:", error);
     throw error;
   } finally {
     await pool.end();

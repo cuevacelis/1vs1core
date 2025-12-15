@@ -1,5 +1,4 @@
 import { ORPCError } from "@orpc/server";
-import * as bcrypt from "bcryptjs";
 import { z } from "zod";
 import { createSession, destroySession } from "../../auth/session";
 import { query } from "../../db/config";
@@ -23,44 +22,30 @@ const authRouter = orpc.router({
     .handler(async ({ input }) => {
       const { accessCode } = input;
 
-      // Find user by access code hash
-      const users = await query<User>("SELECT * FROM users WHERE status = $1", [
-        true,
-      ]);
+      // Verify access code using PostgreSQL function
+      const result = await query<{
+        user_id: number;
+        user_data: User;
+        roles: Role[];
+      }>("SELECT * FROM fn_auth_verify_access_code($1)", [accessCode]);
 
-      let matchedUser: User | null = null;
-
-      for (const user of users) {
-        const isMatch = await bcrypt.compare(accessCode, user.access_code_hash);
-        if (isMatch) {
-          matchedUser = user;
-          break;
-        }
-      }
-
-      if (!matchedUser) {
+      if (result.length === 0) {
         throw new ORPCError("UNAUTHORIZED", {
           message: "Invalid access code",
         });
       }
 
-      // Get user roles
-      const roles = await query<Role>(
-        `SELECT r.* FROM role r
-         INNER JOIN role_user ru ON r.id = ru.role_id
-         WHERE ru.user_id = $1 AND ru.status = true`,
-        [matchedUser.id],
-      );
+      const { user_data, roles } = result[0];
 
       // Create session
       await createSession({
-        userId: matchedUser.id,
+        userId: user_data.id,
         accessCode,
       });
 
       return {
         user: {
-          ...matchedUser,
+          ...user_data,
           roles,
         },
         accessCode,

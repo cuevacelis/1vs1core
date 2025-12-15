@@ -41,10 +41,20 @@ npx tsx lib/db/migrate.ts
 
 **No ORM Philosophy**: This project intentionally avoids ORMs. All database interactions use raw SQL queries through the `pg` library following Next.js Learn patterns.
 
+**Core Files**:
 - `config.ts`: Connection pooling, query helpers, transaction support
 - `types.ts`: TypeScript interfaces matching database tables
-- `schema.sql`: Complete PostgreSQL schema with triggers for auto-updating modification dates
-- `migrate.ts`: Migration runner script
+- `migrate.ts`: Migration runner script that executes all SQL files in `migrations/` directory
+
+**Migration Files** (executed in alphabetical order):
+- `migrations/001_types.sql`: ENUM type definitions (entity_state, user_state, tournament_state, etc.)
+- `migrations/002_tables.sql`: All table definitions (person, users, role, tournament, match, etc.)
+- `migrations/003_indexes.sql`: Performance indexes for all tables
+- `migrations/004_functions_shared.sql`: Shared utility functions and triggers (modification_date auto-update)
+- `migrations/005_functions_auth.sql`: Authentication functions (`fn_auth_generate_access_code`, `fn_auth_verify_access_code`)
+- `migrations/006_functions_user.sql`: User management functions (`fn_user_create_with_access_code`)
+- `migrations/007_functions_role.sql`: Role management functions (`fn_role_assign_to_user`)
+- `migrations/008_seed_data.sql`: Initial/default data (roles, games, module access)
 
 **Key Tables**:
 - `users` + `person`: User authentication (access_code_hash) and personal info
@@ -216,9 +226,144 @@ Handle these transitions in match-related procedures and WebSocket messages.
 
 ## Database Migration Workflow
 
-1. Edit `lib/db/schema.sql` for schema changes
-2. Run migration: `npx tsx lib/db/migrate.ts`
-3. Update TypeScript types in `lib/db/types.ts` to match schema
+### Running Migrations
+
+To apply all database changes, run:
+```bash
+npm run db:migrate
+# or
+npx tsx lib/db/migrate.ts
+```
+
+This will execute all SQL files in `lib/db/migrations/` in alphabetical order (001, 002, 003, etc.).
+
+### Adding New Migrations
+
+When making database changes, add new migration files following this workflow:
+
+1. **Create a new migration file** in `lib/db/migrations/` with the next sequence number:
+   - Use format: `XXX_description.sql` where XXX is a 3-digit number
+   - Examples: `009_add_notifications_table.sql`, `010_add_email_column.sql`
+
+2. **Choose the appropriate category** based on your change:
+   - **Types**: New ENUM types → `00X_types_*.sql`
+   - **Tables**: New tables or table modifications → `00X_tables_*.sql`
+   - **Indexes**: New indexes → `00X_indexes_*.sql`
+   - **Functions**: New/updated functions → `00X_functions_*.sql`
+   - **Data**: Seed/default data → `00X_seed_*.sql`
+
+3. **Write idempotent SQL**:
+   - Use `CREATE TABLE IF NOT EXISTS`
+   - Use `CREATE INDEX IF NOT EXISTS`
+   - Use `CREATE OR REPLACE FUNCTION` for functions
+   - Use `INSERT ... ON CONFLICT DO NOTHING` for seed data
+   - For ENUM types, use `DO $$ BEGIN ... EXCEPTION WHEN duplicate_object THEN NULL; END $$;`
+   - For functions with return type changes, use `DROP FUNCTION IF EXISTS` before creating
+
+4. **Update TypeScript types** in `lib/db/types.ts` to match schema changes
+
+5. **Test the migration**:
+   ```bash
+   npm run db:migrate
+   ```
+
+### Example: Adding a New Table
+
+Create `lib/db/migrations/009_add_notifications_table.sql`:
+
+```sql
+-- ============================================================================
+-- 009_add_notifications_table.sql
+-- Notifications System
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS notification (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(200) NOT NULL,
+    message TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT false,
+    state entity_state DEFAULT 'active',
+    creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_notification_user ON notification(user_id);
+CREATE INDEX IF NOT EXISTS idx_notification_read ON notification(is_read);
+```
+
+Then run `npm run db:migrate` to apply the changes.
+
+### Modifying Existing Migrations
+
+**IMPORTANT**:
+- ✅ **DO** modify existing migration files if they haven't been deployed to production yet
+- ❌ **DO NOT** modify existing migration files that have been deployed to production
+- For production changes, always create a new migration file (e.g., `00X_alter_*.sql`)
+
+### Database Function Naming Convention
+
+**CRITICAL**: All PostgreSQL functions MUST follow this naming pattern:
+
+**Pattern**: `fn_[module]_[functionality]`
+
+Where:
+- `fn_` - Fixed prefix for all database functions
+- `[module]` - The module/domain the function affects (e.g., `user`, `auth`, `role`, `tournament`, `match`, `shared`)
+- `[functionality]` - Brief description of what the function does (e.g., `create_with_access_code`, `generate_access_code`, `assign_to_user`)
+
+**Examples**:
+
+```sql
+-- Authentication module
+CREATE OR REPLACE FUNCTION fn_auth_generate_access_code()
+RETURNS TEXT AS $$
+-- Generates a random access code for user authentication
+...
+$$ LANGUAGE plpgsql;
+
+-- User module
+CREATE OR REPLACE FUNCTION fn_user_create_with_access_code(
+  p_name VARCHAR(100),
+  p_role_name VARCHAR(50) DEFAULT 'player'
+)
+RETURNS TABLE(...) AS $$
+-- Creates a new user with an auto-generated access code
+...
+$$ LANGUAGE plpgsql;
+
+-- Role module
+CREATE OR REPLACE FUNCTION fn_role_assign_to_user(
+  p_user_id INTEGER,
+  p_role_name VARCHAR(50)
+)
+RETURNS BOOLEAN AS $$
+-- Assigns a role to a user
+...
+$$ LANGUAGE plpgsql;
+
+-- Shared/utility functions
+CREATE OR REPLACE FUNCTION fn_shared_update_modification_date()
+RETURNS TRIGGER AS $$
+-- Trigger function to auto-update modification_date on row updates
+...
+$$ LANGUAGE plpgsql;
+```
+
+**Module Guidelines**:
+- `auth` - Authentication and access code operations
+- `user` - User CRUD operations
+- `role` - Role management and assignments
+- `tournament` - Tournament operations
+- `match` - Match operations
+- `champion` - Champion operations
+- `shared` - Utility functions used across multiple modules (triggers, validators, etc.)
+
+**Benefits**:
+- ✅ Clear module ownership
+- ✅ Consistent naming across the codebase
+- ✅ Easy to search and filter functions by module
+- ✅ Self-documenting code
+- ✅ Prevents naming conflicts
 
 ## TanStack Query Patterns
 
@@ -530,6 +675,7 @@ queryClient.invalidateQueries({
 - **Package Installation**: Always use `--legacy-peer-deps` flag due to oRPC version conflicts
 - **No ORM**: Database access is intentionally raw SQL - do not introduce ORMs
 - **Type Safety**: oRPC provides end-to-end type safety - the `AppRouter` type is the contract
+- **Database Functions**: ALL PostgreSQL functions MUST follow the naming pattern `fn_[module]_[functionality]` (e.g., `fn_user_create_with_access_code`, `fn_auth_generate_access_code`, `fn_role_assign_to_user`)
 - **TanStack Query Integration**: This project uses `@orpc/tanstack-query` for automatic query key management. ALWAYS use `orpc.*.*.queryOptions()` instead of manual query keys
 - **Client API Calls**: NEVER use direct API routes (`/api/*`). ALWAYS use the oRPC client (`client.auth.login()`, `client.auth.logout()`, etc.) for type-safe API communication
 - **oRPC Utilities**: Use `orpc` from `@/lib/orpc/orpc.client` for queries/mutations. Use `client` for direct API calls

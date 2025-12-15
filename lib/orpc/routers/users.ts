@@ -30,7 +30,7 @@ export const usersRouter = orpc.router({
         user_id: number;
         access_code: string;
         user_name: string;
-      }>(`SELECT * FROM create_user_with_access_code($1, $2, $3, $4)`, [
+      }>(`SELECT * FROM fn_user_create_with_access_code($1, $2, $3, $4)`, [
         input.name,
         input.short_name,
         input.persona_id,
@@ -47,7 +47,7 @@ export const usersRouter = orpc.router({
 
       // Assign roles
       for (const roleName of input.roles) {
-        await query(`SELECT assign_role_to_user($1, $2)`, [
+        await query(`SELECT fn_role_assign_to_user($1, $2)`, [
           newUser.user_id,
           roleName,
         ]);
@@ -222,7 +222,7 @@ export const usersRouter = orpc.router({
       }),
     )
     .handler(async ({ input }) => {
-      await query(`SELECT assign_role_to_user($1, $2)`, [
+      await query(`SELECT fn_role_assign_to_user($1, $2)`, [
         input.userId,
         input.roleName,
       ]);
