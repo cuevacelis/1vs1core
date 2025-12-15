@@ -21,7 +21,7 @@ const tournamentsRouter = orpc.router({
           .optional(),
         limit: z.number().default(50),
         offset: z.number().default(0),
-      }),
+      })
     )
     .handler(async ({ input }) => {
       const { tournament_state, limit, offset } = input;
@@ -70,7 +70,7 @@ const tournamentsRouter = orpc.router({
          FROM tournament t
          INNER JOIN game g ON t.game_id = g.id
          WHERE t.id = $1`,
-        [input.id],
+        [input.id]
       );
 
       if (tournaments.length === 0) {
@@ -100,7 +100,7 @@ const tournamentsRouter = orpc.router({
         end_date: z.string().optional(),
         max_participants: z.number().optional(),
         url_image: z.string().optional(),
-      }),
+      })
     )
     .handler(async ({ input, context }) => {
       const result = await query<Tournament>(
@@ -116,7 +116,7 @@ const tournamentsRouter = orpc.router({
           input.max_participants,
           context.user!.id,
           input.url_image,
-        ],
+        ]
       );
 
       return result[0];
@@ -144,7 +144,7 @@ const tournamentsRouter = orpc.router({
           .enum(["draft", "active", "in_progress", "completed", "cancelled"])
           .optional(),
         url_image: z.string().optional(),
-      }),
+      })
     )
     .handler(async ({ input }) => {
       const { id, ...updates } = input;
@@ -169,9 +169,9 @@ const tournamentsRouter = orpc.router({
       values.push(id);
       const result = await query<Tournament>(
         `UPDATE tournament SET ${setClause.join(
-          ", ",
+          ", "
         )} WHERE id = $${paramIndex} RETURNING *`,
-        values,
+        values
       );
 
       if (result.length === 0) {
@@ -199,7 +199,7 @@ const tournamentsRouter = orpc.router({
       // Check if tournament exists and is active
       const tournaments = await query<Tournament>(
         "SELECT * FROM tournament WHERE id = $1",
-        [input.tournamentId],
+        [input.tournamentId]
       );
 
       if (tournaments.length === 0) {
@@ -210,7 +210,7 @@ const tournamentsRouter = orpc.router({
 
       const tournament = tournaments[0];
 
-      if (tournament.tournament_state !== "active") {
+      if (tournament.state !== "active") {
         throw new ORPCError("BAD_REQUEST", {
           message: "Tournament is not accepting participants",
         });
@@ -219,7 +219,7 @@ const tournamentsRouter = orpc.router({
       // Check if already joined
       const existing = await query(
         "SELECT * FROM tournament_participations WHERE tournament_id = $1 AND user_id = $2",
-        [input.tournamentId, userId],
+        [input.tournamentId, userId]
       );
 
       if (existing.length > 0) {
@@ -232,7 +232,7 @@ const tournamentsRouter = orpc.router({
       if (tournament.max_participants) {
         const participantsCount = await query<{ count: string }>(
           "SELECT COUNT(*) as count FROM tournament_participations WHERE tournament_id = $1",
-          [input.tournamentId],
+          [input.tournamentId]
         );
 
         if (
@@ -249,7 +249,7 @@ const tournamentsRouter = orpc.router({
         `INSERT INTO tournament_participations (tournament_id, user_id, status, participation_state)
          VALUES ($1, $2, true, 'confirmed')
          RETURNING *`,
-        [input.tournamentId, userId],
+        [input.tournamentId, userId]
       );
 
       return result[0];
@@ -272,7 +272,7 @@ const tournamentsRouter = orpc.router({
          INNER JOIN users u ON tp.user_id = u.id
          WHERE tp.tournament_id = $1
          ORDER BY tp.registration_date ASC`,
-        [input.tournamentId],
+        [input.tournamentId]
       );
 
       return participants;

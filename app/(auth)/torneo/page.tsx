@@ -21,10 +21,10 @@ export default function TournamentsPage() {
     activeTab === "all"
       ? {}
       : activeTab === "active"
-        ? { tournament_state: "active" }
-        : activeTab === "upcoming"
-          ? { tournament_state: "draft" }
-          : { tournament_state: "completed" },
+      ? { tournament_state: "active" }
+      : activeTab === "upcoming"
+      ? { tournament_state: "draft" }
+      : { tournament_state: "completed" }
   );
 
   const getTournamentStateLabel = (state: string) => {
@@ -75,8 +75,8 @@ export default function TournamentsPage() {
                       activeTab === "active"
                         ? "activos"
                         : activeTab === "upcoming"
-                          ? "próximos"
-                          : "completados"
+                        ? "próximos"
+                        : "completados"
                     }`}
               </p>
               {activeTab === "all" && (
@@ -96,9 +96,7 @@ export default function TournamentsPage() {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {tournaments.map((tournament) => {
-          const stateLabel = getTournamentStateLabel(
-            tournament.tournament_state,
-          );
+          const stateLabel = getTournamentStateLabel(tournament.state);
           return (
             <Link key={tournament.id} href={`/torneo/${tournament.id}`}>
               <Card className="border-2 hover:border-primary transition-colors cursor-pointer h-full">
@@ -143,7 +141,7 @@ export default function TournamentsPage() {
                               {
                                 addSuffix: true,
                                 locale: es,
-                              },
+                              }
                             )}
                           </span>
                         </div>
