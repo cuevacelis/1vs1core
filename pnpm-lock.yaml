@@ -63,10 +63,10 @@ importers:
         specifier: 0.7.1
         version: 0.7.1
       clsx:
-        specifier: ^2.1.1
+        specifier: 2.1.1
         version: 2.1.1
       date-fns:
-        specifier: ^4.1.0
+        specifier: 4.1.0
         version: 4.1.0
       lucide-react:
         specifier: ^0.561.0
@@ -90,16 +90,16 @@ importers:
         specifier: 2.15.4
         version: 2.15.4(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       sonner:
-        specifier: ^2.0.7
+        specifier: 2.0.7
         version: 2.0.7(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       tailwind-merge:
-        specifier: ^3.4.0
+        specifier: 3.4.0
         version: 3.4.0
       ws:
-        specifier: ^8.18.3
+        specifier: 8.18.3
         version: 8.18.3
       zod:
-        specifier: ^4.1.13
+        specifier: 4.2.0
         version: 4.2.0
     devDependencies:
       '@biomejs/biome':
