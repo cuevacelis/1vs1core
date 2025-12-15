@@ -24,9 +24,9 @@ const authRouter = orpc.router({
 
       // Verify access code using PostgreSQL function
       const result = await query<{
-        user_id: number;
-        user_data: User;
-        roles: Role[];
+        out_user_id: number;
+        out_user_data: User;
+        out_roles: Role[];
       }>("SELECT * FROM fn_auth_verify_access_code($1)", [accessCode]);
 
       if (result.length === 0) {
@@ -35,7 +35,7 @@ const authRouter = orpc.router({
         });
       }
 
-      const { user_data, roles } = result[0];
+      const { out_user_data: user_data, out_roles: roles } = result[0];
 
       // Create session
       await createSession({

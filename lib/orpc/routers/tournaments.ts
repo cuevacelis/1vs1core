@@ -267,7 +267,7 @@ const tournamentsRouter = orpc.router({
     .input(z.object({ tournamentId: z.number() }))
     .handler(async ({ input }) => {
       const participants = await query(
-        `SELECT u.id, u.name, u.short_name, u.url_image, tp.registration_date, tp.status, tp.participation_state
+        `SELECT u.id, u.name, u.short_name, u.url_image, tp.registration_date, tp.state as participation_state
          FROM tournament_participations tp
          INNER JOIN users u ON tp.user_id = u.id
          WHERE tp.tournament_id = $1

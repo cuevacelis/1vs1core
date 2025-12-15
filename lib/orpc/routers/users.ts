@@ -27,14 +27,16 @@ export const usersRouter = orpc.router({
     .handler(async ({ input }) => {
       // Create user with auto-generated access code
       const result = await query<{
-        user_id: number;
-        access_code: string;
-        user_name: string;
-      }>(`SELECT * FROM fn_user_create_with_access_code($1, $2, $3, $4)`, [
+        out_user_id: number;
+        out_access_code: string;
+        out_user_name: string;
+        out_assigned_role: string;
+      }>(`SELECT * FROM fn_user_create_with_access_code($1, $2, $3, $4, $5)`, [
         input.name,
         input.short_name,
         input.persona_id,
         input.url_image,
+        input.roles[0] || 'player', // Pass first role to the function
       ]);
 
       if (result.length === 0) {
@@ -45,18 +47,18 @@ export const usersRouter = orpc.router({
 
       const newUser = result[0];
 
-      // Assign roles
-      for (const roleName of input.roles) {
+      // Assign additional roles if provided
+      for (let i = 1; i < input.roles.length; i++) {
         await query(`SELECT fn_role_assign_to_user($1, $2)`, [
-          newUser.user_id,
-          roleName,
+          newUser.out_user_id,
+          input.roles[i],
         ]);
       }
 
       return {
-        id: newUser.user_id,
-        name: newUser.user_name,
-        access_code: newUser.access_code,
+        id: newUser.out_user_id,
+        name: newUser.out_user_name,
+        access_code: newUser.out_access_code,
         message:
           "IMPORTANT: Save this access code securely. It cannot be retrieved later.",
       };
@@ -82,7 +84,7 @@ export const usersRouter = orpc.router({
       const { limit, offset, status } = input;
 
       let queryText = `
-        SELECT u.id, u.name, u.short_name, u.status, u.suspension_status,
+        SELECT u.id, u.name, u.short_name, u.state,
                u.url_image, u.creation_date, u.modification_date,
                COALESCE(
                  json_agg(
@@ -91,15 +93,15 @@ export const usersRouter = orpc.router({
                  '[]'
                ) as roles
         FROM users u
-        LEFT JOIN role_user ru ON u.id = ru.user_id AND ru.status = true
+        LEFT JOIN role_user ru ON u.id = ru.user_id AND ru.state = 'active'
         LEFT JOIN role r ON ru.role_id = r.id
       `;
 
       const params: any[] = [];
 
       if (status !== undefined) {
-        queryText += ` WHERE u.status = $1`;
-        params.push(status);
+        queryText += ` WHERE u.state = $1`;
+        params.push(status ? 'active' : 'inactive');
       }
 
       queryText += ` GROUP BY u.id ORDER BY u.creation_date DESC LIMIT $${
@@ -125,7 +127,7 @@ export const usersRouter = orpc.router({
     .input(z.object({ id: z.number() }))
     .handler(async ({ input }) => {
       const users = await query(
-        `SELECT u.id, u.name, u.short_name, u.status, u.suspension_status,
+        `SELECT u.id, u.name, u.short_name, u.state,
                 u.url_image, u.creation_date, u.modification_date,
                 COALESCE(
                   json_agg(
@@ -134,7 +136,7 @@ export const usersRouter = orpc.router({
                   '[]'
                 ) as roles
          FROM users u
-         LEFT JOIN role_user ru ON u.id = ru.user_id AND ru.status = true
+         LEFT JOIN role_user ru ON u.id = ru.user_id AND ru.state = 'active'
          LEFT JOIN role r ON ru.role_id = r.id
          WHERE u.id = $1
          GROUP BY u.id`,
@@ -164,8 +166,7 @@ export const usersRouter = orpc.router({
         id: z.number(),
         name: z.string().min(1).max(100).optional(),
         short_name: z.string().max(50).optional(),
-        status: z.boolean().optional(),
-        suspension_status: z.enum(["suspended"]).nullable().optional(),
+        state: z.enum(["active", "suspended", "banned", "pending_verification"]).optional(),
         url_image: z.string().optional(),
       }),
     )
@@ -248,7 +249,7 @@ export const usersRouter = orpc.router({
     .handler(async ({ input }) => {
       const result = await query(
         `UPDATE role_user ru
-         SET status = false
+         SET state = 'inactive'
          FROM role r
          WHERE ru.role_id = r.id
            AND ru.user_id = $1
@@ -279,7 +280,7 @@ export const usersRouter = orpc.router({
       const userId = context.user!.id;
 
       const users = await query(
-        `SELECT u.id, u.name, u.short_name, u.status, u.suspension_status,
+        `SELECT u.id, u.name, u.short_name, u.state,
                 u.url_image, u.creation_date,
                 p.first_name, p.second_name, p.paternal_last_name, p.maternal_last_name,
                 COALESCE(
@@ -289,7 +290,7 @@ export const usersRouter = orpc.router({
                   '[]'
                 ) as roles
          FROM users u
-         LEFT JOIN role_user ru ON u.id = ru.user_id AND ru.status = true
+         LEFT JOIN role_user ru ON u.id = ru.user_id AND ru.state = 'active'
          LEFT JOIN role r ON ru.role_id = r.id
          LEFT JOIN person p ON u.persona_id = p.id
          WHERE u.id = $1
@@ -305,8 +306,7 @@ export const usersRouter = orpc.router({
         id: user.id,
         name: user.name,
         short_name: user.short_name,
-        status: user.status,
-        suspension_status: user.suspension_status,
+        state: user.state,
         url_image: user.url_image,
         creation_date: user.creation_date,
         roles: user.roles,
@@ -338,7 +338,7 @@ export const usersRouter = orpc.router({
         `SELECT COUNT(*) as count
          FROM match
          WHERE (player1_id = $1 OR player2_id = $1)
-         AND match_state = 'completed'`,
+         AND state = 'completed'`,
         [userId],
       );
 
@@ -347,7 +347,7 @@ export const usersRouter = orpc.router({
         `SELECT COUNT(*) as count
          FROM match
          WHERE winner_id = $1
-         AND match_state = 'completed'`,
+         AND state = 'completed'`,
         [userId],
       );
 
@@ -356,7 +356,7 @@ export const usersRouter = orpc.router({
         `SELECT COUNT(*) as count
          FROM tournament_participations
          WHERE user_id = $1
-         AND participation_state = 'confirmed'`,
+         AND state = 'confirmed'`,
         [userId],
       );
 
@@ -368,7 +368,7 @@ export const usersRouter = orpc.router({
         `SELECT id, winner_id
          FROM match
          WHERE (player1_id = $1 OR player2_id = $1)
-         AND match_state = 'completed'
+         AND state = 'completed'
          ORDER BY match_date DESC
          LIMIT 10`,
         [userId],
@@ -437,7 +437,7 @@ export const usersRouter = orpc.router({
          LEFT JOIN champion c1 ON mc1.champion_id = c1.id
          LEFT JOIN champion c2 ON mc2.champion_id = c2.id
          WHERE (m.player1_id = $1 OR m.player2_id = $1)
-         AND m.match_state = 'completed'
+         AND m.state = 'completed'
          ORDER BY m.match_date DESC
          LIMIT $2 OFFSET $3`,
         [userId, input.limit, input.offset],
@@ -476,7 +476,7 @@ export const usersRouter = orpc.router({
       const tournaments = await query(
         `SELECT t.*,
                 tp.registration_date,
-                tp.participation_state,
+                tp.state as participation_state,
                 g.name as game_name
          FROM tournament_participations tp
          INNER JOIN tournament t ON tp.tournament_id = t.id

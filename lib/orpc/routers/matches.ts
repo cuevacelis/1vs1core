@@ -100,7 +100,7 @@ const matchesRouter = orpc.router({
         // Get all confirmed participants
         const participants = await client.query(
           `SELECT user_id FROM tournament_participations
-           WHERE tournament_id = $1 AND participation_state = 'confirmed'
+           WHERE tournament_id = $1 AND state = 'confirmed'
            ORDER BY RANDOM()`,
           [input.tournamentId],
         );
@@ -118,8 +118,8 @@ const matchesRouter = orpc.router({
         for (let i = 0; i < userIds.length - 1; i += 2) {
           if (userIds[i + 1]) {
             const result = await client.query(
-              `INSERT INTO match (tournament_id, round, player1_id, player2_id, status, match_state)
-               VALUES ($1, $2, $3, $4, true, 'pending')
+              `INSERT INTO match (tournament_id, round, player1_id, player2_id, state)
+               VALUES ($1, $2, $3, $4, 'pending')
                RETURNING *`,
               [input.tournamentId, input.round, userIds[i], userIds[i + 1]],
             );
@@ -144,8 +144,8 @@ const matchesRouter = orpc.router({
     .input(z.object({ matchId: z.number() }))
     .handler(async ({ input }) => {
       const result = await query<Match>(
-        `UPDATE match SET match_state = 'active', match_date = CURRENT_TIMESTAMP
-         WHERE id = $1 AND match_state = 'pending'
+        `UPDATE match SET state = 'active', match_date = CURRENT_TIMESTAMP
+         WHERE id = $1 AND state = 'pending'
          RETURNING *`,
         [input.matchId],
       );
@@ -187,7 +187,7 @@ const matchesRouter = orpc.router({
          INNER JOIN users p2 ON m.player2_id = p2.id
          INNER JOIN tournament t ON m.tournament_id = t.id
          WHERE (m.player1_id = $1 OR m.player2_id = $1)
-         AND m.match_state IN ('active', 'player1_connected', 'player2_connected', 'both_connected', 'in_selection')
+         AND m.state IN ('active', 'player1_connected', 'player2_connected', 'both_connected', 'in_selection')
          ORDER BY m.match_date DESC
          LIMIT 1`,
         [userId],
@@ -229,7 +229,7 @@ const matchesRouter = orpc.router({
 
       if (
         !["active", "player1_connected", "player2_connected"].includes(
-          match.match_state,
+          match.state,
         )
       ) {
         throw new ORPCError("BAD_REQUEST", {
@@ -237,23 +237,23 @@ const matchesRouter = orpc.router({
         });
       }
 
-      let newMatchState = match.match_state;
-      if (match.match_state === "active") {
+      let newMatchState = match.state;
+      if (match.state === "active") {
         newMatchState =
           match.player1_id === userId
             ? "player1_connected"
             : "player2_connected";
       } else if (
-        (match.match_state === "player1_connected" &&
+        (match.state === "player1_connected" &&
           match.player2_id === userId) ||
-        (match.match_state === "player2_connected" &&
+        (match.state === "player2_connected" &&
           match.player1_id === userId)
       ) {
         newMatchState = "both_connected";
       }
 
       const result = await query<Match>(
-        "UPDATE match SET match_state = $1 WHERE id = $2 RETURNING *",
+        "UPDATE match SET state = $1 WHERE id = $2 RETURNING *",
         [newMatchState, input.matchId],
       );
 
@@ -277,7 +277,7 @@ const matchesRouter = orpc.router({
     )
     .handler(async ({ input }) => {
       const result = await query<Match>(
-        `UPDATE match SET match_state = 'completed', winner_id = $1
+        `UPDATE match SET state = 'completed', winner_id = $1
          WHERE id = $2
          RETURNING *`,
         [input.winnerId, input.matchId],

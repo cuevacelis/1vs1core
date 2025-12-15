@@ -77,7 +77,7 @@ const championsRouter = orpc.router({
       const matches = await query(
         `SELECT * FROM match
          WHERE id = $1 AND (player1_id = $2 OR player2_id = $2)
-         AND match_state IN ('both_connected', 'in_selection')`,
+         AND state IN ('both_connected', 'in_selection')`,
         [input.matchId, userId],
       );
 
@@ -101,8 +101,8 @@ const championsRouter = orpc.router({
 
       // Update match status to in_selection if needed
       await query(
-        `UPDATE match SET match_state = 'in_selection'
-         WHERE id = $1 AND match_state = 'both_connected'`,
+        `UPDATE match SET state = 'in_selection'
+         WHERE id = $1 AND state = 'both_connected'`,
         [input.matchId],
       );
 
@@ -155,7 +155,7 @@ const championsRouter = orpc.router({
 
       if (parseInt(selections[0].count) === 2) {
         // Update match status to locked
-        await query(`UPDATE match SET match_state = 'locked' WHERE id = $1`, [
+        await query(`UPDATE match SET state = 'locked' WHERE id = $1`, [
           input.matchId,
         ]);
       }
