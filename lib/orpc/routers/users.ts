@@ -36,7 +36,7 @@ export const usersRouter = orpc.router({
         input.short_name,
         input.persona_id,
         input.url_image,
-        input.roles[0] || 'player', // Pass first role to the function
+        input.roles[0] || "player", // Pass first role to the function
       ]);
 
       if (result.length === 0) {
@@ -101,7 +101,7 @@ export const usersRouter = orpc.router({
 
       if (status !== undefined) {
         queryText += ` WHERE u.state = $1`;
-        params.push(status ? 'active' : 'inactive');
+        params.push(status ? "active" : "inactive");
       }
 
       queryText += ` GROUP BY u.id ORDER BY u.creation_date DESC LIMIT $${
@@ -166,7 +166,9 @@ export const usersRouter = orpc.router({
         id: z.number(),
         name: z.string().min(1).max(100).optional(),
         short_name: z.string().max(50).optional(),
-        state: z.enum(["active", "suspended", "banned", "pending_verification"]).optional(),
+        state: z
+          .enum(["active", "suspended", "banned", "pending_verification"])
+          .optional(),
         url_image: z.string().optional(),
       }),
     )

@@ -244,10 +244,8 @@ const matchesRouter = orpc.router({
             ? "player1_connected"
             : "player2_connected";
       } else if (
-        (match.state === "player1_connected" &&
-          match.player2_id === userId) ||
-        (match.state === "player2_connected" &&
-          match.player1_id === userId)
+        (match.state === "player1_connected" && match.player2_id === userId) ||
+        (match.state === "player2_connected" && match.player1_id === userId)
       ) {
         newMatchState = "both_connected";
       }

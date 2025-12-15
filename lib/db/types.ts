@@ -31,7 +31,11 @@ export function getPersonFullName(
     .trim();
 }
 
-export type UserState = "active" | "suspended" | "banned" | "pending_verification";
+export type UserState =
+  | "active"
+  | "suspended"
+  | "banned"
+  | "pending_verification";
 
 export interface User {
   id: number;
@@ -79,7 +83,12 @@ export interface Game {
   creation_date: Date;
 }
 
-export type TournamentState = "draft" | "active" | "in_progress" | "completed" | "cancelled";
+export type TournamentState =
+  | "draft"
+  | "active"
+  | "in_progress"
+  | "completed"
+  | "cancelled";
 
 export interface Tournament {
   id: number;
