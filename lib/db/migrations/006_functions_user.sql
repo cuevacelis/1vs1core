@@ -29,6 +29,30 @@ DECLARE
     v_unique BOOLEAN := FALSE;
     v_role_id INTEGER;
 BEGIN
+    /******************************************************************************
+      NOMBRE:  fn_user_create_with_access_code
+      PROPÓSITO: Función para crear un nuevo usuario con código de acceso auto-generado y asignarle un rol
+      INVOCACIÓN: SELECT * FROM fn_user_create_with_access_code('Juan Pérez', 'juanp', NULL, NULL, 'player');
+      PARÁMETROS:
+        - p_name: Nombre completo del usuario (requerido)
+        - p_short_name: Nombre corto/alias del usuario (opcional)
+        - p_persona_id: ID de la persona asociada (opcional)
+        - p_url_image: URL de imagen de perfil (opcional)
+        - p_role_name: Nombre del rol a asignar (default: 'player')
+      RETORNA: TABLE con:
+        - out_user_id: ID del usuario creado
+        - out_access_code: Código de acceso en texto plano (CRÍTICO: guardar de forma segura)
+        - out_user_name: Nombre del usuario
+        - out_assigned_role: Nombre del rol asignado
+      VALIDACIONES:
+        - Verifica unicidad del código de acceso generado
+        - Valida que el rol especificado exista (lanza excepción si no existe)
+        - Genera código de acceso único usando bcrypt
+      SEGURIDAD:
+        - El código de acceso se hashea con bcrypt antes de almacenarse
+        - El código en texto plano SOLO se retorna en esta función
+        - Imposible recuperar el código después de esta operación
+    ******************************************************************************/
     -- Generate unique access code (check for collisions)
     WHILE NOT v_unique LOOP
         v_access_code := fn_auth_generate_access_code();
@@ -48,7 +72,7 @@ BEGIN
 
     -- If role doesn't exist, raise exception
     IF v_role_id IS NULL THEN
-        RAISE EXCEPTION 'Role % does not exist', p_role_name;
+        RAISE EXCEPTION 'El rol % no existe', p_role_name;
     END IF;
 
     -- Assign role to user

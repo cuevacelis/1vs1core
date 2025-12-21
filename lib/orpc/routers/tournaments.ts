@@ -26,29 +26,13 @@ const tournamentsRouter = orpc.router({
     .handler(async ({ input }) => {
       const { tournament_state, limit, offset } = input;
 
-      let queryText = `
-        SELECT t.*,
-               g.name as game_name, g.type as game_type
-        FROM tournament t
-        INNER JOIN game g ON t.game_id = g.id
-      `;
+      // Use database function fn_tournament_list
+      const result = await query<{ out_tournament: object }>(
+        `SELECT * FROM fn_tournament_list($1, $2, $3)`,
+        [tournament_state || null, limit, offset]
+      );
 
-      const params: any[] = [];
-      if (tournament_state) {
-        queryText += ` WHERE t.tournament_state = $1`;
-        params.push(tournament_state);
-      }
-
-      queryText += ` ORDER BY t.creation_date DESC LIMIT $${
-        params.length + 1
-      } OFFSET $${params.length + 2}`;
-      params.push(limit, offset);
-
-      const tournaments = await query<
-        Tournament & { game_name: string; game_type: string }
-      >(queryText, params);
-
-      return tournaments;
+      return result.map((row) => row.out_tournament);
     }),
 
   // Public: Get tournament by ID
@@ -62,24 +46,19 @@ const tournamentsRouter = orpc.router({
     })
     .input(z.object({ id: z.number() }))
     .handler(async ({ input }) => {
-      const tournaments = await query<
-        Tournament & { game_name: string; game_type: string }
-      >(
-        `SELECT t.*,
-                g.name as game_name, g.type as game_type
-         FROM tournament t
-         INNER JOIN game g ON t.game_id = g.id
-         WHERE t.id = $1`,
+      // Use database function fn_tournament_get_by_id
+      const result = await query<{ out_tournament: object }>(
+        `SELECT * FROM fn_tournament_get_by_id($1)`,
         [input.id]
       );
 
-      if (tournaments.length === 0) {
+      if (result.length === 0) {
         throw new ORPCError("NOT_FOUND", {
           message: "Tournament not found",
         });
       }
 
-      return tournaments[0];
+      return result[0].out_tournament;
     }),
 
   // Admin: Create tournament
@@ -103,23 +82,28 @@ const tournamentsRouter = orpc.router({
       })
     )
     .handler(async ({ input, context }) => {
-      const result = await query<Tournament>(
-        `INSERT INTO tournament (name, description, game_id, start_date, end_date, max_participants, creator_id, url_image, status, tournament_state)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, 'draft')
-         RETURNING *`,
+      // Use database function fn_tournament_create
+      const result = await query<{ out_tournament: object }>(
+        `SELECT * FROM fn_tournament_create($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
           input.name,
-          input.description,
           input.game_id,
-          input.start_date,
-          input.end_date,
-          input.max_participants,
-          context.user!.id,
-          input.url_image,
+          context.user?.id,
+          input.description || null,
+          input.start_date || null,
+          input.end_date || null,
+          input.max_participants || null,
+          input.url_image || null,
         ]
       );
 
-      return result[0];
+      if (result.length === 0) {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: "Failed to create tournament",
+        });
+      }
+
+      return result[0].out_tournament;
     }),
 
   // Admin: Update tournament
@@ -194,65 +178,25 @@ const tournamentsRouter = orpc.router({
     })
     .input(z.object({ tournamentId: z.number() }))
     .handler(async ({ input, context }) => {
-      const userId = context.user!.id;
+      const userId = context.user?.id;
 
-      // Check if tournament exists and is active
-      const tournaments = await query<Tournament>(
-        "SELECT * FROM tournament WHERE id = $1",
-        [input.tournamentId]
-      );
+      // Use database function fn_tournament_join
+      const result = await query<{
+        out_success: boolean;
+        out_message: string;
+        out_participation: object | null;
+      }>(`SELECT * FROM fn_tournament_join($1, $2)`, [
+        input.tournamentId,
+        userId,
+      ]);
 
-      if (tournaments.length === 0) {
-        throw new ORPCError("NOT_FOUND", {
-          message: "Tournament not found",
-        });
-      }
-
-      const tournament = tournaments[0];
-
-      if (tournament.state !== "active") {
+      if (result.length === 0 || !result[0].out_success) {
         throw new ORPCError("BAD_REQUEST", {
-          message: "Tournament is not accepting participants",
+          message: result[0]?.out_message || "Failed to join tournament",
         });
       }
 
-      // Check if already joined
-      const existing = await query(
-        "SELECT * FROM tournament_participations WHERE tournament_id = $1 AND user_id = $2",
-        [input.tournamentId, userId]
-      );
-
-      if (existing.length > 0) {
-        throw new ORPCError("CONFLICT", {
-          message: "Already joined this tournament",
-        });
-      }
-
-      // Check max participants
-      if (tournament.max_participants) {
-        const participantsCount = await query<{ count: string }>(
-          "SELECT COUNT(*) as count FROM tournament_participations WHERE tournament_id = $1",
-          [input.tournamentId]
-        );
-
-        if (
-          parseInt(participantsCount[0].count) >= tournament.max_participants
-        ) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: "Tournament is full",
-          });
-        }
-      }
-
-      // Join tournament
-      const result = await query(
-        `INSERT INTO tournament_participations (tournament_id, user_id, status, participation_state)
-         VALUES ($1, $2, true, 'confirmed')
-         RETURNING *`,
-        [input.tournamentId, userId]
-      );
-
-      return result[0];
+      return result[0].out_participation;
     }),
 
   // Get tournament participants
@@ -266,16 +210,13 @@ const tournamentsRouter = orpc.router({
     })
     .input(z.object({ tournamentId: z.number() }))
     .handler(async ({ input }) => {
-      const participants = await query(
-        `SELECT u.id, u.name, u.short_name, u.url_image, tp.registration_date, tp.state as participation_state
-         FROM tournament_participations tp
-         INNER JOIN users u ON tp.user_id = u.id
-         WHERE tp.tournament_id = $1
-         ORDER BY tp.registration_date ASC`,
+      // Use database function fn_tournament_get_participants
+      const result = await query<{ out_participant: object }>(
+        `SELECT * FROM fn_tournament_get_participants($1)`,
         [input.tournamentId]
       );
 
-      return participants;
+      return result.map((row) => row.out_participant);
     }),
 });
 

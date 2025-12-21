@@ -1,5 +1,5 @@
 import { ORPCError, os } from "@orpc/server";
-import type { AppContext } from "./context";
+import type { AppContext, AuthenticatedContext } from "./context";
 
 // Base oRPC instance with context
 export const orpc = os.$context<AppContext>();
@@ -12,7 +12,10 @@ export const authMiddleware = orpc.middleware(
         message: "Debes iniciar sesión para acceder a este recurso",
       });
     }
-    return options.next({ context: options.context });
+    // Type assertion is safe here because we checked user is not null
+    return options.next({
+      context: { user: options.context.user } as AuthenticatedContext,
+    });
   },
 );
 
@@ -34,7 +37,10 @@ export const roleMiddleware = (requiredRole: string) =>
       });
     }
 
-    return options.next({ context: options.context });
+    // Type assertion is safe here because we checked user is not null
+    return options.next({
+      context: { user: options.context.user } as AuthenticatedContext,
+    });
   });
 
 export const authedOrpc = orpc.use(authMiddleware);

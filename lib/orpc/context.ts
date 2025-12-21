@@ -2,8 +2,14 @@ import { getSession } from "@/lib/auth/session";
 import { query } from "@/lib/db/config";
 import type { Role, User } from "@/lib/db/types";
 
+export type AuthenticatedUser = User & { roles: Role[] };
+
 export interface AppContext {
-  user: (User & { roles: Role[] }) | null;
+  user: AuthenticatedUser | null;
+}
+
+export interface AuthenticatedContext {
+  user: AuthenticatedUser;
 }
 
 /**

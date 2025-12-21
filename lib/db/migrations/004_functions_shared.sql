@@ -8,6 +8,16 @@
 CREATE OR REPLACE FUNCTION fn_shared_update_modification_date()
 RETURNS TRIGGER AS $$
 BEGIN
+    /******************************************************************************
+      NOMBRE:  fn_shared_update_modification_date
+      PROPÓSITO: Función trigger para actualizar automáticamente el campo modification_date cuando se modifica un registro
+      INVOCACIÓN: Se ejecuta automáticamente mediante triggers en las tablas configuradas
+      RETORNA: NEW record con modification_date actualizado al timestamp actual
+      NOTAS:
+        - Esta es una función de tipo TRIGGER, no se invoca directamente
+        - Se ejecuta automáticamente BEFORE UPDATE en las tablas configuradas
+        - Garantiza que modification_date siempre refleje la última modificación
+    ******************************************************************************/
     NEW.modification_date = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;

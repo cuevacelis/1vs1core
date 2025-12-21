@@ -17,7 +17,7 @@ const authRouter = orpc.router({
     .input(
       z.object({
         accessCode: z.string().min(1),
-      }),
+      })
     )
     .handler(async ({ input }) => {
       const { accessCode } = input;

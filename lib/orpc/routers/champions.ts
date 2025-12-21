@@ -1,7 +1,6 @@
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { query } from "../../db/config";
-import type { Champion, MatchChampion } from "../../db/types";
 import { adminOrpc, authedOrpc, orpc } from "../server";
 
 const championsRouter = orpc.router({
@@ -16,14 +15,13 @@ const championsRouter = orpc.router({
     })
     .input(z.object({ gameId: z.number() }))
     .handler(async ({ input }) => {
-      const champions = await query<Champion>(
-        `SELECT * FROM champion
-         WHERE game_id = $1 AND status = true AND ban_status IS NULL
-         ORDER BY name ASC`,
-        [input.gameId],
+      // Use database function fn_champion_list_by_game
+      const result = await query<{ out_champion: object }>(
+        `SELECT * FROM fn_champion_list_by_game($1)`,
+        [input.gameId]
       );
 
-      return champions;
+      return result.map((row) => row.out_champion);
     }),
 
   // Admin: Create champion
@@ -41,17 +39,27 @@ const championsRouter = orpc.router({
         game_id: z.number(),
         description: z.string().optional(),
         url_image: z.string().optional(),
-      }),
+      })
     )
     .handler(async ({ input }) => {
-      const result = await query<Champion>(
-        `INSERT INTO champion (name, game_id, description, url_image)
-         VALUES ($1, $2, $3, $4)
-         RETURNING *`,
-        [input.name, input.game_id, input.description, input.url_image],
+      // Use database function fn_champion_create
+      const result = await query<{ out_champion: object }>(
+        `SELECT * FROM fn_champion_create($1, $2, $3, $4)`,
+        [
+          input.name,
+          input.game_id,
+          input.description || null,
+          input.url_image || null,
+        ]
       );
 
-      return result[0];
+      if (result.length === 0) {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: "Failed to create champion",
+        });
+      }
+
+      return result[0].out_champion;
     }),
 
   // Player: Select champion for match
@@ -68,55 +76,38 @@ const championsRouter = orpc.router({
         matchId: z.number(),
         championId: z.number(),
         role: z.string().optional(),
-      }),
+      })
     )
     .handler(async ({ input, context }) => {
-      const userId = context.user!.id;
+      const userId = context.user?.id;
 
-      // Verify player is part of the match
-      const matches = await query(
-        `SELECT * FROM match
-         WHERE id = $1 AND (player1_id = $2 OR player2_id = $2)
-         AND state IN ('both_connected', 'in_selection')`,
-        [input.matchId, userId],
-      );
+      // Use database function fn_champion_select
+      const result = await query<{
+        out_success: boolean;
+        out_message: string;
+        out_selection: object | null;
+      }>(`SELECT * FROM fn_champion_select($1, $2, $3, $4)`, [
+        input.matchId,
+        userId,
+        input.championId,
+        input.role || null,
+      ]);
 
-      if (matches.length === 0) {
-        throw new ORPCError("NOT_FOUND", {
-          message: "Match not found or not available for selection",
-        });
+      if (result.length === 0 || !result[0].out_success) {
+        const message = result[0]?.out_message || "Failed to select champion";
+
+        if (message.includes("No eres parte")) {
+          throw new ORPCError("FORBIDDEN", { message });
+        } else if (message.includes("no encontrada")) {
+          throw new ORPCError("NOT_FOUND", { message });
+        } else if (message.includes("bloqueada")) {
+          throw new ORPCError("FORBIDDEN", { message });
+        } else {
+          throw new ORPCError("BAD_REQUEST", { message });
+        }
       }
 
-      // Check if already locked
-      const existing = await query<MatchChampion>(
-        "SELECT * FROM match_champions WHERE match_id = $1 AND player_id = $2",
-        [input.matchId, userId],
-      );
-
-      if (existing.length > 0 && existing[0].is_locked) {
-        throw new ORPCError("FORBIDDEN", {
-          message: "Champion selection already locked",
-        });
-      }
-
-      // Update match status to in_selection if needed
-      await query(
-        `UPDATE match SET state = 'in_selection'
-         WHERE id = $1 AND state = 'both_connected'`,
-        [input.matchId],
-      );
-
-      // Upsert champion selection
-      const result = await query<MatchChampion>(
-        `INSERT INTO match_champions (match_id, player_id, champion_id, role, is_locked)
-         VALUES ($1, $2, $3, $4, false)
-         ON CONFLICT (match_id, player_id)
-         DO UPDATE SET champion_id = $3, role = $4, selection_date = CURRENT_TIMESTAMP
-         RETURNING *`,
-        [input.matchId, userId, input.championId, input.role],
-      );
-
-      return result[0];
+      return result[0].out_selection;
     }),
 
   // Player: Lock champion selection
@@ -130,37 +121,25 @@ const championsRouter = orpc.router({
     })
     .input(z.object({ matchId: z.number() }))
     .handler(async ({ input, context }) => {
-      const userId = context.user!.id;
+      const userId = context.user?.id;
 
-      const result = await query<MatchChampion>(
-        `UPDATE match_champions
-         SET is_locked = true, lock_date = CURRENT_TIMESTAMP
-         WHERE match_id = $1 AND player_id = $2
-         RETURNING *`,
-        [input.matchId, userId],
-      );
+      // Use database function fn_champion_lock_selection
+      const result = await query<{
+        out_success: boolean;
+        out_message: string;
+        out_selection: object | null;
+      }>(`SELECT * FROM fn_champion_lock_selection($1, $2)`, [
+        input.matchId,
+        userId,
+      ]);
 
-      if (result.length === 0) {
+      if (result.length === 0 || !result[0].out_success) {
         throw new ORPCError("BAD_REQUEST", {
-          message: "No champion selected",
+          message: result[0]?.out_message || "No champion selected",
         });
       }
 
-      // Check if both players locked
-      const selections = await query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM match_champions
-         WHERE match_id = $1 AND is_locked = true`,
-        [input.matchId],
-      );
-
-      if (parseInt(selections[0].count) === 2) {
-        // Update match status to locked
-        await query(`UPDATE match SET state = 'locked' WHERE id = $1`, [
-          input.matchId,
-        ]);
-      }
-
-      return result[0];
+      return result[0].out_selection;
     }),
 
   // Get champion selections for a match
@@ -174,25 +153,13 @@ const championsRouter = orpc.router({
     })
     .input(z.object({ matchId: z.number() }))
     .handler(async ({ input }) => {
-      const selections = await query<
-        MatchChampion & {
-          player_name: string;
-          champion_name: string;
-          champion_url_image?: string;
-        }
-      >(
-        `SELECT mc.*,
-                u.name as player_name,
-                c.name as champion_name,
-                c.url_image as champion_url_image
-         FROM match_champions mc
-         INNER JOIN users u ON mc.player_id = u.id
-         INNER JOIN champion c ON mc.champion_id = c.id
-         WHERE mc.match_id = $1`,
-        [input.matchId],
+      // Use database function fn_champion_get_match_selections
+      const result = await query<{ out_selection: object }>(
+        `SELECT * FROM fn_champion_get_match_selections($1)`,
+        [input.matchId]
       );
 
-      return selections;
+      return result.map((row) => row.out_selection);
     }),
 });
 

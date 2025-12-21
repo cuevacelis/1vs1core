@@ -1,9 +1,16 @@
 "use client";
 
-import { LayoutDashboard, LogOut, Swords, Trophy, User } from "lucide-react";
+import {
+  LayoutDashboard,
+  type LucideIcon,
+  Swords,
+  Trophy,
+  User,
+} from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import * as React from "react";
+import { usePathname } from "next/navigation";
+
+import { useNavigationItemsQuery } from "@/components/services/use-navigation-items.query";
 import {
   Sidebar,
   SidebarContent,
@@ -17,49 +24,23 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { client } from "@/lib/orpc/orpc.client";
+import { NavUser } from "./nav-user";
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {}
 
-const navItems = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Torneos",
-    href: "/torneo",
-    icon: Trophy,
-  },
-  {
-    title: "Partidas",
-    href: "/player",
-    icon: Swords,
-  },
-  {
-    title: "Perfil",
-    href: "/perfil",
-    icon: User,
-  },
-];
+// Icon mapping from string names to Lucide components
+const iconMap: Record<string, LucideIcon> = {
+  LayoutDashboard,
+  Trophy,
+  Swords,
+  User,
+};
 
 export function AppSidebar({ ...props }: AppSidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
-  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      await client.auth.logout();
-      router.push("/");
-      router.refresh();
-    } catch (error) {
-      console.error("Error al cerrar sesión:", error);
-      setIsLoggingOut(false);
-    }
-  };
+  // Fetch navigation items from API based on user roles
+  const { data: navItems = [], isLoading } = useNavigationItemsQuery();
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -88,37 +69,39 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
           <SidebarGroupLabel>Navegación</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive =
-                  pathname === item.href ||
-                  pathname?.startsWith(`${item.href}/`);
+              {isLoading ? (
+                <SidebarMenuItem>
+                  <SidebarMenuButton disabled>
+                    <span>Cargando...</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ) : (
+                navItems.map((item) => {
+                  // Get icon component from mapping, fallback to LayoutDashboard
+                  const Icon = iconMap[item.icon] || LayoutDashboard;
+                  const isActive =
+                    pathname === item.href ||
+                    pathname?.startsWith(`${item.href}/`);
 
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={isActive}>
-                      <Link href={item.href}>
-                        <Icon className="size-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton asChild isActive={isActive}>
+                        <Link href={item.href}>
+                          <Icon className="size-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={handleLogout} disabled={isLoggingOut}>
-              <LogOut className="size-4" />
-              <span>{isLoggingOut ? "Cerrando..." : "Cerrar Sesión"}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <NavUser />
       </SidebarFooter>
 
       <SidebarRail />

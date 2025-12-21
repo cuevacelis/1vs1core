@@ -1,6 +1,6 @@
+import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { query } from "../../db/config";
-import type { Game } from "../../db/types";
 import { adminOrpc, orpc } from "../server";
 
 const gamesRouter = orpc.router({
@@ -14,11 +14,12 @@ const gamesRouter = orpc.router({
       tags: ["games"],
     })
     .handler(async () => {
-      const games = await query<Game>(
-        `SELECT * FROM game WHERE status = true ORDER BY name ASC`,
+      // Use database function fn_game_list
+      const result = await query<{ out_game: object }>(
+        `SELECT * FROM fn_game_list()`
       );
 
-      return games;
+      return result.map((row) => row.out_game);
     }),
 
   // Get game by ID
@@ -32,15 +33,19 @@ const gamesRouter = orpc.router({
     })
     .input(z.object({ id: z.number() }))
     .handler(async ({ input }) => {
-      const games = await query<Game>("SELECT * FROM game WHERE id = $1", [
-        input.id,
-      ]);
+      // Use database function fn_game_get_by_id
+      const result = await query<{ out_game: object }>(
+        `SELECT * FROM fn_game_get_by_id($1)`,
+        [input.id]
+      );
 
-      if (games.length === 0) {
-        throw new Error("Game not found");
+      if (result.length === 0) {
+        throw new ORPCError("NOT_FOUND", {
+          message: "Game not found",
+        });
       }
 
-      return games[0];
+      return result[0].out_game;
     }),
 
   // Admin: Create game
@@ -57,17 +62,22 @@ const gamesRouter = orpc.router({
         name: z.string().min(1).max(100),
         type: z.string().min(1).max(50),
         description: z.string().optional(),
-      }),
+      })
     )
     .handler(async ({ input }) => {
-      const result = await query<Game>(
-        `INSERT INTO game (name, type, description)
-         VALUES ($1, $2, $3)
-         RETURNING *`,
-        [input.name, input.type, input.description],
+      // Use database function fn_game_create
+      const result = await query<{ out_game: object }>(
+        `SELECT * FROM fn_game_create($1, $2, $3)`,
+        [input.name, input.type, input.description || null]
       );
 
-      return result[0];
+      if (result.length === 0) {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: "Failed to create game",
+        });
+      }
+
+      return result[0].out_game;
     }),
 });
 

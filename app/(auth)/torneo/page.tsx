@@ -21,10 +21,10 @@ export default function TournamentsPage() {
     activeTab === "all"
       ? {}
       : activeTab === "active"
-      ? { tournament_state: "active" }
-      : activeTab === "upcoming"
-      ? { tournament_state: "draft" }
-      : { tournament_state: "completed" }
+        ? { tournament_state: "active" }
+        : activeTab === "upcoming"
+          ? { tournament_state: "draft" }
+          : { tournament_state: "completed" },
   );
 
   const getTournamentStateLabel = (state: string) => {
@@ -75,8 +75,8 @@ export default function TournamentsPage() {
                       activeTab === "active"
                         ? "activos"
                         : activeTab === "upcoming"
-                        ? "próximos"
-                        : "completados"
+                          ? "próximos"
+                          : "completados"
                     }`}
               </p>
               {activeTab === "all" && (
@@ -141,7 +141,7 @@ export default function TournamentsPage() {
                               {
                                 addSuffix: true,
                                 locale: es,
-                              }
+                              },
                             )}
                           </span>
                         </div>

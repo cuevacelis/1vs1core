@@ -75,9 +75,11 @@ npx tsx lib/db/migrate.ts
 - `client.ts`: Type-safe frontend client
 
 **Middleware Chain**:
-1. `orpc` - Base instance with context
-2. `authedOrpc` - Requires authenticated user
-3. `adminOrpc` - Requires admin role
+1. `orpc` - Base instance with context (`AppContext` where `user` can be `null`)
+2. `authedOrpc` - Requires authenticated user (refines context to `AuthenticatedContext` where `user` is guaranteed non-null)
+3. `adminOrpc` - Requires admin role (also uses `AuthenticatedContext`)
+
+**Type Safety**: When using `authedOrpc` or `adminOrpc`, TypeScript guarantees that `context.user` is never `null`, eliminating the need for non-null assertions (`!`) or additional validation. The middleware performs runtime validation and refines the type accordingly.
 
 **All routers export procedures using these base instances**. The type signature `AppRouter` is exported and imported by the client for full type safety.
 
@@ -311,41 +313,142 @@ Where:
 - `[module]` - The module/domain the function affects (e.g., `user`, `auth`, `role`, `tournament`, `match`, `shared`)
 - `[functionality]` - Brief description of what the function does (e.g., `create_with_access_code`, `generate_access_code`, `assign_to_user`)
 
-**Examples**:
+### Database Function Documentation Pattern
+
+**CRITICAL**: All PostgreSQL functions MUST include documentation in Spanish immediately after the `BEGIN` keyword following this exact format:
+
+```sql
+CREATE OR REPLACE FUNCTION fn_module_functionality(
+    p_param1 TYPE,
+    p_param2 TYPE DEFAULT value
+)
+RETURNS return_type AS $$
+DECLARE
+    v_variable TYPE;
+BEGIN
+    /******************************************************************************
+      NOMBRE:  fn_module_functionality
+      PROPÓSITO: Descripción clara de qué hace la función
+      INVOCACIÓN: SELECT * FROM fn_module_functionality(valor1, valor2);
+      PARÁMETROS: (opcional - solo si requiere explicación adicional)
+        - p_param1: Descripción del parámetro 1
+        - p_param2: Descripción del parámetro 2 (default: valor)
+      RETORNA: Descripción de lo que retorna con estructura detallada
+      VALIDACIONES: (opcional - solo si aplica)
+        - Lista de validaciones que realiza la función
+        - Condiciones que verifica antes de ejecutar
+      NOTAS: (opcional - información adicional relevante)
+        - Comportamientos especiales
+        - Consideraciones de seguridad
+        - Patrones de uso recomendados
+    ******************************************************************************/
+    -- Function implementation
+    ...
+END;
+$$ LANGUAGE plpgsql;
+```
+
+**Reglas de Documentación**:
+1. **NOMBRE**: Siempre debe coincidir con el nombre de la función
+2. **PROPÓSITO**: Descripción en español de qué hace la función (una línea clara)
+3. **INVOCACIÓN**: Ejemplo completo de cómo llamar la función con valores reales
+4. **PARÁMETROS**: (Opcional) Solo incluir si los parámetros requieren explicación adicional más allá del nombre
+5. **RETORNA**: Descripción de lo que retorna, incluyendo estructura si es JSONB o TABLE
+6. **VALIDACIONES**: (Opcional) Lista de validaciones que la función realiza
+7. **NOTAS**: (Opcional) Información adicional importante (seguridad, triggers, comportamientos especiales)
+8. **Mensajes de Error**: Todos los mensajes de error/éxito deben estar en español
+
+**Ejemplo 1: Función Simple**:
 
 ```sql
 -- Authentication module
 CREATE OR REPLACE FUNCTION fn_auth_generate_access_code()
 RETURNS TEXT AS $$
--- Generates a random access code for user authentication
-...
+DECLARE
+    chars TEXT := 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    result TEXT := '';
+    i INTEGER;
+BEGIN
+    /******************************************************************************
+      NOMBRE:  fn_auth_generate_access_code
+      PROPÓSITO: Función para generar un código de acceso aleatorio de 12 caracteres alfanuméricos
+      INVOCACIÓN: SELECT fn_auth_generate_access_code();
+      RETORNA: TEXT - Código de acceso aleatorio (ej: 'A3K9M2P7Q1R5')
+      NOTAS:
+        - Utiliza solo letras mayúsculas (A-Z) y números (0-9)
+        - Longitud fija de 12 caracteres
+        - No verifica unicidad (debe hacerse externamente)
+    ******************************************************************************/
+    FOR i IN 1..12 LOOP
+        result := result || substr(chars, floor(random() * length(chars) + 1)::int, 1);
+    END LOOP;
+    RETURN result;
+END;
 $$ LANGUAGE plpgsql;
+```
 
--- User module
-CREATE OR REPLACE FUNCTION fn_user_create_with_access_code(
-  p_name VARCHAR(100),
-  p_role_name VARCHAR(50) DEFAULT 'player'
+**Ejemplo 2: Función con Validaciones y Parámetros**:
+
+```sql
+-- Tournament module
+CREATE OR REPLACE FUNCTION fn_tournament_join(
+    p_tournament_id INTEGER,
+    p_user_id INTEGER
 )
-RETURNS TABLE(...) AS $$
--- Creates a new user with an auto-generated access code
-...
-$$ LANGUAGE plpgsql;
+RETURNS TABLE(
+    out_success BOOLEAN,
+    out_message TEXT,
+    out_participation JSONB
+) AS $$
+DECLARE
+    v_tournament tournament%ROWTYPE;
+    v_participants_count INTEGER;
+BEGIN
+    /******************************************************************************
+      NOMBRE:  fn_tournament_join
+      PROPÓSITO: Función para inscribir un usuario en un torneo, validando disponibilidad y cupos
+      INVOCACIÓN: SELECT * FROM fn_tournament_join(1, 5);
+      RETORNA: Éxito, mensaje descriptivo y datos de la participación en JSONB
+      VALIDACIONES:
+        - Verifica que el torneo exista
+        - Verifica que el torneo esté activo y aceptando participantes
+        - Verifica que el usuario no esté ya inscrito
+        - Verifica que haya cupos disponibles (si hay límite de participantes)
+    ******************************************************************************/
+    -- Get tournament
+    SELECT * INTO v_tournament FROM tournament WHERE id = p_tournament_id;
 
--- Role module
-CREATE OR REPLACE FUNCTION fn_role_assign_to_user(
-  p_user_id INTEGER,
-  p_role_name VARCHAR(50)
-)
-RETURNS BOOLEAN AS $$
--- Assigns a role to a user
-...
-$$ LANGUAGE plpgsql;
+    -- Check if tournament exists
+    IF v_tournament.id IS NULL THEN
+        RETURN QUERY SELECT false, 'Torneo no encontrado', NULL::JSONB;
+        RETURN;
+    END IF;
 
--- Shared/utility functions
+    -- Implementation continues...
+END;
+$$ LANGUAGE plpgsql;
+```
+
+**Ejemplo 3: Función Trigger**:
+
+```sql
+-- Shared/utility module
 CREATE OR REPLACE FUNCTION fn_shared_update_modification_date()
 RETURNS TRIGGER AS $$
--- Trigger function to auto-update modification_date on row updates
-...
+BEGIN
+    /******************************************************************************
+      NOMBRE:  fn_shared_update_modification_date
+      PROPÓSITO: Función trigger para actualizar automáticamente el campo modification_date cuando se modifica un registro
+      INVOCACIÓN: Se ejecuta automáticamente mediante triggers en las tablas configuradas
+      RETORNA: NEW record con modification_date actualizado al timestamp actual
+      NOTAS:
+        - Esta es una función de tipo TRIGGER, no se invoca directamente
+        - Se ejecuta automáticamente BEFORE UPDATE en las tablas configuradas
+        - Garantiza que modification_date siempre refleje la última modificación
+    ******************************************************************************/
+    NEW.modification_date = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
 $$ LANGUAGE plpgsql;
 ```
 

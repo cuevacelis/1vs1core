@@ -16,12 +16,12 @@ FROM role r WHERE r.name = 'admin'
 ON CONFLICT (role_id, url_pattern) DO NOTHING;
 
 INSERT INTO module (role_id, url_pattern, description)
-SELECT r.id, '/torneos/*', 'Full access to tournaments and all sub-routes'
+SELECT r.id, '/torneo/*', 'Full access to tournaments and all sub-routes'
 FROM role r WHERE r.name = 'admin'
 ON CONFLICT (role_id, url_pattern) DO NOTHING;
 
 INSERT INTO module (role_id, url_pattern, description)
-SELECT r.id, '/partidas/*', 'Full access to matches and all sub-routes'
+SELECT r.id, '/player/*', 'Full access to matches and all sub-routes'
 FROM role r WHERE r.name = 'admin'
 ON CONFLICT (role_id, url_pattern) DO NOTHING;
 
