@@ -339,14 +339,16 @@ export default function Dashboard() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {new Date(match.match_date).toLocaleDateString(
-                            "es-ES",
-                            {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            },
-                          )}
+                          {match.match_date
+                            ? new Date(match.match_date).toLocaleDateString(
+                                "es-ES",
+                                {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                }
+                              )
+                            : "N/A"}
                         </TableCell>
                       </TableRow>
                     ))}

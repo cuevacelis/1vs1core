@@ -181,13 +181,27 @@ export const matchesRouter = {
       description: "Obtener la partida activa del usuario actual",
       tags: ["matches", "player"],
     })
-    .output(matchOutputSchema.nullable())
+    .output(
+      matchOutputSchema
+        .extend({
+          player1_name: z.string(),
+          player2_name: z.string(),
+          tournament_name: z.string(),
+        })
+        .nullable()
+    )
     .handler(async ({ context }) => {
       const userId = context?.session?.userId;
 
       // Use database function fn_match_get_active_for_user
       const result = await query<{
-        out_match: MatchOutput | null;
+        out_match:
+          | (MatchOutput & {
+              player1_name: string;
+              player2_name: string;
+              tournament_name: string;
+            })
+          | null;
       }>(`SELECT * FROM fn_match_get_active_for_user($1)`, [userId]);
 
       return result.length > 0 ? result[0].out_match : null;

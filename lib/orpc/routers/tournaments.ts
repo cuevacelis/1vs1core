@@ -27,6 +27,12 @@ const tournamentOutputSchema = z.object({
   modification_date: z.string().optional(),
 });
 
+// Extended schema for list endpoint with game details
+const tournamentListOutputSchema = tournamentOutputSchema.extend({
+  game_name: z.string(),
+  game_type: z.string(),
+});
+
 type TournamentState =
   | "draft"
   | "active"
@@ -66,13 +72,16 @@ export const tournamentsRouter = {
         offset: z.number().default(0),
       }),
     )
-    .output(z.array(tournamentOutputSchema))
+    .output(z.array(tournamentListOutputSchema))
     .handler(async ({ input }) => {
       const { tournament_state, limit, offset } = input;
 
       // Use database function fn_tournament_list
       const result = await query<{
-        out_tournament: TournamentOutput;
+        out_tournament: TournamentOutput & {
+          game_name: string;
+          game_type: string;
+        };
       }>(`SELECT * FROM fn_tournament_list($1, $2, $3)`, [
         tournament_state || null,
         limit,

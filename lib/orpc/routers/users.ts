@@ -433,10 +433,14 @@ export const usersRouter = {
         z.object({
           id: z.number(),
           tournament_id: z.number(),
+          tournament_name: z.string(),
           round: z.number(),
           player1_id: z.number(),
+          player1_name: z.string(),
           player2_id: z.number(),
+          player2_name: z.string(),
           winner_id: z.number().optional(),
+          winner_name: z.string().optional(),
           match_date: z.string().optional(),
           state: z.enum([
             "pending",
@@ -451,6 +455,13 @@ export const usersRouter = {
           ]),
           creation_date: z.string(),
           modification_date: z.string().optional(),
+          player1_champion_id: z.number().optional(),
+          player1_champion_name: z.string().optional(),
+          player2_champion_id: z.number().optional(),
+          player2_champion_name: z.string().optional(),
+          opponent_name: z.string(),
+          my_champion: z.string().optional(),
+          result: z.string(),
         })
       )
     )
@@ -460,10 +471,14 @@ export const usersRouter = {
         out_match: {
           id: number;
           tournament_id: number;
+          tournament_name: string;
           round: number;
           player1_id: number;
+          player1_name: string;
           player2_id: number;
+          player2_name: string;
           winner_id?: number;
+          winner_name?: string;
           match_date?: string;
           state:
             | "pending"
@@ -477,6 +492,13 @@ export const usersRouter = {
             | "cancelled";
           creation_date: string;
           modification_date?: string;
+          player1_champion_id?: number;
+          player1_champion_name?: string;
+          player2_champion_id?: number;
+          player2_champion_name?: string;
+          opponent_name: string;
+          my_champion?: string;
+          result: string;
         };
       }>(`SELECT * FROM fn_user_get_recent_matches($1, $2, $3)`, [
         userId,
@@ -509,6 +531,7 @@ export const usersRouter = {
           name: z.string(),
           description: z.string().optional(),
           game_id: z.number(),
+          game_name: z.string(),
           start_date: z.string().optional(),
           end_date: z.string().optional(),
           max_participants: z.number().optional(),
@@ -520,9 +543,18 @@ export const usersRouter = {
             "completed",
             "cancelled",
           ]),
+          tournament_state: z.enum([
+            "draft",
+            "active",
+            "in_progress",
+            "completed",
+            "cancelled",
+          ]),
           url_image: z.string().optional(),
           creation_date: z.string(),
           modification_date: z.string().optional(),
+          registration_date: z.string().optional(),
+          participation_state: z.string().optional(),
         })
       )
     )
@@ -536,14 +568,23 @@ export const usersRouter = {
           name: string;
           description?: string;
           game_id: number;
+          game_name: string;
           start_date?: string;
           end_date?: string;
           max_participants?: number;
           creator_id: number;
           state: "draft" | "active" | "in_progress" | "completed" | "cancelled";
+          tournament_state:
+            | "draft"
+            | "active"
+            | "in_progress"
+            | "completed"
+            | "cancelled";
           url_image?: string;
           creation_date: string;
           modification_date?: string;
+          registration_date?: string;
+          participation_state?: string;
         };
       }>(`SELECT * FROM fn_user_get_tournaments($1, $2, $3)`, [
         userId,
