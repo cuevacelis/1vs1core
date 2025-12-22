@@ -32,28 +32,26 @@ $$ LANGUAGE plpgsql;
 -- Drop function if exists (needed when changing return type)
 DROP FUNCTION IF EXISTS fn_auth_verify_access_code(TEXT);
 
--- Function to verify access code and return user with roles
+-- Function to verify access code and return user with role
 CREATE OR REPLACE FUNCTION fn_auth_verify_access_code(
     p_access_code TEXT
 )
 RETURNS TABLE(
     out_user_id INTEGER,
     out_user_data JSONB,
-    out_roles JSONB
+    out_role JSONB
 ) AS $$
-DECLARE
-    v_user users%ROWTYPE;
 BEGIN
     /******************************************************************************
       NOMBRE:  fn_auth_verify_access_code
-      PROPÓSITO: Función para verificar un código de acceso y retornar el usuario con sus roles si es válido
+      PROPÓSITO: Función para verificar un código de acceso y retornar el usuario con su rol si es válido
       INVOCACIÓN: SELECT * FROM fn_auth_verify_access_code('ABC123XYZ789');
       PARÁMETROS:
         - p_access_code: Código de acceso en texto plano proporcionado por el usuario
       RETORNA: TABLE con:
         - out_user_id: ID del usuario autenticado
         - out_user_data: Datos completos del usuario en formato JSONB
-        - out_roles: Array JSONB con los roles activos del usuario
+        - out_role: JSONB con el rol del usuario (id, name, description)
       VALIDACIONES:
         - Verifica que el usuario esté en estado 'active'
         - Usa bcrypt para comparar el código con el hash almacenado
@@ -62,31 +60,18 @@ BEGIN
         - Utiliza crypt() con bcrypt para verificación segura de códigos
         - No expone información de usuarios inactivos
     ******************************************************************************/
-    -- Find user with matching access code hash using bcrypt
-    -- crypt() with existing hash verifies the password
-    SELECT u.* INTO v_user
-    FROM users u
-    WHERE u.state = 'active'
-      AND u.access_code_hash = crypt(p_access_code, u.access_code_hash);
-
-    -- If no match found, return empty
-    IF v_user.id IS NULL THEN
-        RETURN;
-    END IF;
-
-    -- Return user with roles
     RETURN QUERY
     SELECT
-        v_user.id,
-        to_jsonb(v_user) as user_data,
-        COALESCE(
-            (
-                SELECT jsonb_agg(to_jsonb(r))
-                FROM role r
-                INNER JOIN role_user ru ON r.id = ru.role_id
-                WHERE ru.user_id = v_user.id AND ru.state = 'active'
-            ),
-            '[]'::jsonb
-        ) as roles;
+        u.id,
+        to_jsonb(u) as user_data,
+        jsonb_build_object(
+            'id', r.id,
+            'name', r.name,
+            'description', r.description
+        ) as role
+    FROM users u
+    INNER JOIN role r ON u.role_id = r.id
+    WHERE u.state = 'active'
+      AND u.access_code_hash = crypt(p_access_code, u.access_code_hash);
 END;
 $$ LANGUAGE plpgsql;

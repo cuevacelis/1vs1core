@@ -44,6 +44,7 @@ export interface User {
   short_name?: string;
   state: UserState;
   persona_id?: number;
+  role_id: number;
   url_image?: string;
   creation_date: Date;
   modification_date: Date;
@@ -56,19 +57,14 @@ export interface Role {
   creation_date: Date;
 }
 
-export interface RoleUser {
-  id: number;
-  user_id: number;
-  role_id: number;
-  state: EntityState;
-  creation_date: Date;
-  modification_date: Date;
-}
-
 export interface Module {
   id: number;
   role_id: number;
   url_pattern: string;
+  title?: string;
+  icon?: string;
+  display_order: number;
+  is_visible_in_nav: boolean;
   description?: string;
   state: EntityState;
   creation_date: Date;
@@ -174,8 +170,8 @@ export interface UserWithPerson extends User {
   person?: Person;
 }
 
-export interface UserWithRoles extends User {
-  roles: Role[];
+export interface UserWithRole extends User {
+  role: Role;
 }
 
 export interface TournamentWithGame extends Tournament {

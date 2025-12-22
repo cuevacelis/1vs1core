@@ -4,7 +4,7 @@ interface ProfileInformationProps {
   displayName: string;
   shortName: string;
   firstInitial: string;
-  roles: string;
+  role: string;
   isActive: boolean;
 }
 
@@ -12,7 +12,7 @@ export function ProfileInformation({
   displayName,
   shortName,
   firstInitial,
-  roles,
+  role,
   isActive,
 }: ProfileInformationProps) {
   return (
@@ -30,7 +30,7 @@ export function ProfileInformation({
           </div>
           <div className="ml-6">
             <h3 className="text-2xl font-bold text-gray-900">{displayName}</h3>
-            <p className="text-gray-600">{roles}</p>
+            <p className="text-gray-600">{role}</p>
           </div>
         </div>
 

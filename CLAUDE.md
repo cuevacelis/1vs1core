@@ -21,8 +21,10 @@ npm build
 # Lint code
 npm run lint
 
-# Run database migrations
-npx tsx lib/db/migrate.ts
+# Database commands
+npm run db:migrate  # Run database migrations
+npm run db:clean    # Clean database (drop all tables, functions, types)
+npm run db:reset    # Clean database and run migrations (full reset)
 ```
 
 ## Architecture Overview
@@ -155,17 +157,73 @@ const users = await query<User>(
 ```
 
 ### oRPC Procedures
+
+**CRITICAL**: All oRPC procedures MUST follow this pattern for type safety and API documentation:
+
 ```typescript
 // In lib/orpc/routers/*.ts
 export const myRouter = orpc.router({
   myProcedure: authedOrpc  // or adminOrpc for admin-only
-    .input(z.object({ ... }))
+    .route({
+      method: "POST",  // GET, POST, PATCH, DELETE
+      path: "/resource/{id}",
+      summary: "Título descriptivo en español",  // MUST be in Spanish
+      description: "Descripción detallada en español",  // MUST be in Spanish
+      tags: ["resource", "admin"],  // For OpenAPI grouping
+    })
+    .input(z.object({
+      id: z.number(),
+      name: z.string().min(1).max(100),
+      // ... more fields with validation
+    }))
+    .output(z.object({
+      id: z.number(),
+      name: z.string(),
+      // ... complete output shape with proper types
+      // Use .optional() for optional fields (not .nullable())
+      // Use z.enum() for literal unions
+      // Use z.array() for arrays
+    }))
     .handler(async ({ input, context }) => {
-      // context.user is guaranteed by authedOrpc
-      // Perform raw SQL queries here
-      return result;
+      // context.user is guaranteed by authedOrpc (never null)
+
+      // Use database functions, NOT raw queries when possible
+      const result = await query<TypedResult>(
+        'SELECT * FROM fn_module_action($1, $2)',
+        [input.id, context?.session?.userId]
+      );
+
+      // Proper error handling with Spanish messages
+      if (result.length === 0) {
+        throw new ORPCError("NOT_FOUND", {
+          message: "Recurso no encontrado",
+        });
+      }
+
+      return result[0];
     }),
 });
+```
+
+**Required Components**:
+1. **`.route()`**: Define HTTP method, path, summary (Spanish), description (Spanish), and tags
+2. **`.input()`**: Zod schema for input validation
+3. **`.output()`**: Zod schema for output validation (CRITICAL for type safety)
+4. **`.handler()`**: Implementation logic
+
+**Type Safety Rules**:
+- Input types are automatically inferred from `.input()` schema
+- Output types MUST match `.output()` schema exactly
+- Use `z.string().optional()` for optional string fields (NOT `.nullable()`)
+- Use `z.date()` for Date objects, `z.string()` for ISO date strings
+- Database query result types should match output schema structure
+
+**Error Messages**: ALL error messages MUST be in Spanish
+```typescript
+throw new ORPCError("NOT_FOUND", { message: "Usuario no encontrado" });
+throw new ORPCError("BAD_REQUEST", { message: "Datos inválidos" });
+throw new ORPCError("FORBIDDEN", { message: "Acceso denegado" });
+throw new ORPCError("UNAUTHORIZED", { message: "No autorizado" });
 ```
 
 ### Client-side oRPC Usage

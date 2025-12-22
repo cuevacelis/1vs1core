@@ -4,6 +4,7 @@
 -- ============================================================================
 
 -- Drop functions if they exist (needed when changing return types)
+DROP FUNCTION IF EXISTS fn_user_get_by_id(INTEGER);
 DROP FUNCTION IF EXISTS fn_user_get_profile(INTEGER);
 DROP FUNCTION IF EXISTS fn_user_get_statistics(INTEGER);
 DROP FUNCTION IF EXISTS fn_user_get_recent_matches(INTEGER, INTEGER, INTEGER);
@@ -11,7 +12,50 @@ DROP FUNCTION IF EXISTS fn_user_get_tournaments(INTEGER, INTEGER, INTEGER);
 DROP FUNCTION IF EXISTS fn_user_list_with_roles(BOOLEAN, INTEGER, INTEGER);
 DROP FUNCTION IF EXISTS fn_user_get_accessible_modules(INTEGER);
 
--- Function to get user profile with person and roles
+-- Function to get user by ID with role
+CREATE OR REPLACE FUNCTION fn_user_get_by_id(
+    p_user_id INTEGER
+)
+RETURNS JSONB AS $$
+DECLARE
+    v_user JSONB;
+BEGIN
+    /******************************************************************************
+      NOMBRE:  fn_user_get_by_id
+      PROPÓSITO: Obtener información completa de un usuario por su ID, incluyendo su rol
+      INVOCACIÓN: SELECT fn_user_get_by_id(1);
+      PARÁMETROS:
+        - p_user_id: ID del usuario a buscar
+      RETORNA: JSONB con estructura del usuario y su rol, NULL si no existe
+      VALIDACIONES:
+        - Retorna NULL si el usuario no existe
+      NOTAS:
+        - El rol se agrega como un objeto JSON dentro del objeto usuario
+    ******************************************************************************/
+
+    SELECT jsonb_build_object(
+        'id', u.id,
+        'name', u.name,
+        'short_name', u.short_name,
+        'state', u.state,
+        'url_image', u.url_image,
+        'creation_date', u.creation_date,
+        'modification_date', u.modification_date,
+        'role', jsonb_build_object(
+            'id', r.id,
+            'name', r.name,
+            'description', r.description
+        )
+    ) INTO v_user
+    FROM users u
+    INNER JOIN role r ON u.role_id = r.id
+    WHERE u.id = p_user_id;
+
+    RETURN v_user;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get user profile with person and role
 CREATE OR REPLACE FUNCTION fn_user_get_profile(
     p_user_id INTEGER
 )
@@ -21,9 +65,9 @@ RETURNS TABLE(
 BEGIN
     /******************************************************************************
       NOMBRE:  fn_user_get_profile
-      PROPÓSITO: Función para obtener el perfil completo de un usuario incluyendo roles y datos personales
+      PROPÓSITO: Función para obtener el perfil completo de un usuario incluyendo su rol y datos personales
       INVOCACIÓN: SELECT * FROM fn_user_get_profile(5);
-      RETORNA: JSONB con los datos del usuario, sus roles asignados y datos de la persona asociada
+      RETORNA: JSONB con los datos del usuario, su rol asignado y datos de la persona asociada
     ******************************************************************************/
     RETURN QUERY
     SELECT jsonb_build_object(
@@ -33,20 +77,10 @@ BEGIN
         'state', u.state,
         'url_image', u.url_image,
         'creation_date', u.creation_date,
-        'roles', COALESCE(
-            (
-                SELECT jsonb_agg(
-                    jsonb_build_object(
-                        'id', r.id,
-                        'name', r.name,
-                        'description', r.description
-                    )
-                )
-                FROM role r
-                INNER JOIN role_user ru ON r.id = ru.role_id
-                WHERE ru.user_id = u.id AND ru.state = 'active'
-            ),
-            '[]'::jsonb
+        'role', jsonb_build_object(
+            'id', r.id,
+            'name', r.name,
+            'description', r.description
         ),
         'person', CASE
             WHEN p.id IS NOT NULL THEN
@@ -60,6 +94,7 @@ BEGIN
         END
     ) as profile
     FROM users u
+    INNER JOIN role r ON u.role_id = r.id
     LEFT JOIN person p ON u.persona_id = p.id
     WHERE u.id = p_user_id;
 END;
@@ -262,7 +297,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to list users with roles (admin only)
+-- Function to list users with role (admin only)
 CREATE OR REPLACE FUNCTION fn_user_list_with_roles(
     p_status BOOLEAN DEFAULT NULL,
     p_limit INTEGER DEFAULT 50,
@@ -274,14 +309,14 @@ RETURNS TABLE(
 BEGIN
     /******************************************************************************
       NOMBRE:  fn_user_list_with_roles
-      PROPÓSITO: Función para listar usuarios con sus roles asignados (uso administrativo)
+      PROPÓSITO: Función para listar usuarios con su rol asignado (uso administrativo)
       INVOCACIÓN: SELECT * FROM fn_user_list_with_roles(true, 50, 0);
                   SELECT * FROM fn_user_list_with_roles(NULL, 50, 0);
       PARÁMETROS:
         - p_status: NULL = todos los usuarios, true = solo activos, false = solo inactivos
         - p_limit: Cantidad máxima de resultados
         - p_offset: Desplazamiento para paginación
-      RETORNA: JSONB con los datos de cada usuario y sus roles asignados
+      RETORNA: JSONB con los datos de cada usuario y su rol asignado
     ******************************************************************************/
     IF p_status IS NOT NULL THEN
         RETURN QUERY
@@ -293,23 +328,14 @@ BEGIN
             'url_image', u.url_image,
             'creation_date', u.creation_date,
             'modification_date', u.modification_date,
-            'roles', COALESCE(
-                (
-                    SELECT jsonb_agg(
-                        jsonb_build_object(
-                            'id', r.id,
-                            'name', r.name,
-                            'description', r.description
-                        )
-                    )
-                    FROM role r
-                    INNER JOIN role_user ru ON r.id = ru.role_id
-                    WHERE ru.user_id = u.id AND ru.state = 'active'
-                ),
-                '[]'::jsonb
+            'role', jsonb_build_object(
+                'id', r.id,
+                'name', r.name,
+                'description', r.description
             )
         ) as user_data
         FROM users u
+        INNER JOIN role r ON u.role_id = r.id
         WHERE u.state = CASE WHEN p_status THEN 'active' ELSE 'inactive' END
         ORDER BY u.creation_date DESC
         LIMIT p_limit OFFSET p_offset;
@@ -323,30 +349,21 @@ BEGIN
             'url_image', u.url_image,
             'creation_date', u.creation_date,
             'modification_date', u.modification_date,
-            'roles', COALESCE(
-                (
-                    SELECT jsonb_agg(
-                        jsonb_build_object(
-                            'id', r.id,
-                            'name', r.name,
-                            'description', r.description
-                        )
-                    )
-                    FROM role r
-                    INNER JOIN role_user ru ON r.id = ru.role_id
-                    WHERE ru.user_id = u.id AND ru.state = 'active'
-                ),
-                '[]'::jsonb
+            'role', jsonb_build_object(
+                'id', r.id,
+                'name', r.name,
+                'description', r.description
             )
         ) as user_data
         FROM users u
+        INNER JOIN role r ON u.role_id = r.id
         ORDER BY u.creation_date DESC
         LIMIT p_limit OFFSET p_offset;
     END IF;
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to get accessible modules for a user based on their roles
+-- Function to get accessible modules for a user based on their role
 CREATE OR REPLACE FUNCTION fn_user_get_accessible_modules(
     p_user_id INTEGER
 )
@@ -356,7 +373,7 @@ RETURNS TABLE(
 BEGIN
     /******************************************************************************
       NOMBRE:  fn_user_get_accessible_modules
-      PROPÓSITO: Función para obtener los módulos/rutas a los que tiene acceso un usuario según sus roles
+      PROPÓSITO: Función para obtener los módulos/rutas a los que tiene acceso un usuario según su rol
       INVOCACIÓN: SELECT * FROM fn_user_get_accessible_modules(5);
       RETORNA: JSONB con los datos de cada módulo accesible incluyendo:
         - id: ID del módulo
@@ -366,7 +383,6 @@ BEGIN
         - state: Estado del módulo (active/inactive)
       NOTAS:
         - Los patrones con asterisco (*) indican acceso al módulo y todas sus sub-rutas
-        - Un usuario puede tener acceso al mismo módulo a través de múltiples roles
     ******************************************************************************/
     RETURN QUERY
     SELECT jsonb_build_object(
@@ -379,9 +395,8 @@ BEGIN
     ) as module
     FROM module m
     INNER JOIN role r ON m.role_id = r.id
-    INNER JOIN role_user ru ON r.id = ru.role_id
-    WHERE ru.user_id = p_user_id
-    AND ru.state = 'active'
+    INNER JOIN users u ON u.role_id = r.id
+    WHERE u.id = p_user_id
     AND m.state = 'active'
     ORDER BY m.url_pattern ASC;
 END;

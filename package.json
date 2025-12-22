@@ -10,14 +10,17 @@
     "lint": "biome check --write",
     "format": "biome format --write",
     "clean": "rm -rf .next node_modules pnpm-lock.yaml && pnpm i",
-    "db:migrate": "tsx lib/db/migrate.ts"
+    "db:migrate": "tsx lib/db/migrations/migrate.ts",
+    "db:clean": "tsx lib/db/cleanup/cleanup.ts",
+    "db:reset": "pnpm db:clean && pnpm db:migrate"
   },
   "dependencies": {
-    "@orpc/client": "1.12.3",
-    "@orpc/next": "0.27.0",
-    "@orpc/react-query": "1.12.3",
-    "@orpc/server": "1.12.3",
-    "@orpc/tanstack-query": "^1.12.3",
+    "@orpc/client": "^1.13.0",
+    "@orpc/json-schema": "^1.13.0",
+    "@orpc/openapi": "^1.13.0",
+    "@orpc/openapi-client": "^1.13.0",
+    "@orpc/server": "^1.13.0",
+    "@orpc/tanstack-query": "^1.13.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-avatar": "1.1.11",
     "@radix-ui/react-dialog": "1.1.15",

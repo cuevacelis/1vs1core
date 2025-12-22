@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { getPool } from "./config";
+import { getPool } from "../config";
 
 // Load environment variables from .env file
-const envPath = path.join(__dirname, "../../.env");
+const envPath = path.join(__dirname, "../../../.env");
 if (fs.existsSync(envPath)) {
   const envContent = fs.readFileSync(envPath, "utf-8");
   envContent.split("\n").forEach((line) => {
@@ -47,7 +47,7 @@ async function runMigrations() {
   try {
     console.log("Starting database migration...");
 
-    const migrationsDir = path.join(__dirname, "migrations");
+    const migrationsDir = path.join(__dirname, "./");
 
     // Check if migrations directory exists
     if (!fs.existsSync(migrationsDir)) {

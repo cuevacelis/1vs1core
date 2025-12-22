@@ -2,17 +2,15 @@ import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { query } from "../../db/config";
 import type { User } from "../../db/types";
-import { adminOrpc, authedOrpc, orpc } from "../server";
+import { authedMiddleware } from "../middlewares/auth";
 
-export const usersRouter = orpc.router({
-  // Admin: Create new user with auto-generated access code
-  create: adminOrpc
+export const usersRouter = {
+  create: authedMiddleware
     .route({
       method: "POST",
       path: "/users",
-      summary: "Create user",
-      description:
-        "Create a new user with auto-generated access code (admin only)",
+      summary: "Crear usuario",
+      description: "Crear un nuevo usuario con código de acceso auto-generado",
       tags: ["users", "admin"],
     })
     .input(
@@ -21,11 +19,18 @@ export const usersRouter = orpc.router({
         short_name: z.string().max(50).optional(),
         persona_id: z.number().optional(),
         url_image: z.string().optional(),
-        roles: z.array(z.enum(["admin", "player"])).default(["player"]),
+        role: z.enum(["admin", "player"]).default("player"),
+      })
+    )
+    .output(
+      z.object({
+        id: z.number(),
+        name: z.string(),
+        access_code: z.string(),
+        message: z.string(),
       })
     )
     .handler(async ({ input }) => {
-      // Create user with auto-generated access code
       const result = await query<{
         out_user_id: number;
         out_access_code: string;
@@ -36,7 +41,7 @@ export const usersRouter = orpc.router({
         input.short_name,
         input.persona_id,
         input.url_image,
-        input.roles[0] || "player", // Pass first role to the function
+        input.role,
       ]);
 
       if (result.length === 0) {
@@ -47,30 +52,21 @@ export const usersRouter = orpc.router({
 
       const newUser = result[0];
 
-      // Assign additional roles if provided
-      for (let i = 1; i < input.roles.length; i++) {
-        await query(`SELECT fn_role_assign_to_user($1, $2)`, [
-          newUser.out_user_id,
-          input.roles[i],
-        ]);
-      }
-
       return {
         id: newUser.out_user_id,
         name: newUser.out_user_name,
         access_code: newUser.out_access_code,
         message:
-          "IMPORTANT: Save this access code securely. It cannot be retrieved later.",
+          "IMPORTANTE: Guarda este código de acceso de forma segura. No podrá ser recuperado más tarde.",
       };
     }),
 
-  // Admin: List all users
-  list: adminOrpc
+  list: authedMiddleware
     .route({
       method: "GET",
       path: "/users",
-      summary: "List users",
-      description: "Get all users (admin only)",
+      summary: "Listar usuarios",
+      description: "Obtener todos los usuarios",
       tags: ["users", "admin"],
     })
     .input(
@@ -80,63 +76,119 @@ export const usersRouter = orpc.router({
         status: z.boolean().optional(),
       })
     )
+    .output(
+      z.array(
+        z.object({
+          id: z.number(),
+          name: z.string(),
+          short_name: z.string().optional(),
+          state: z.enum([
+            "active",
+            "suspended",
+            "banned",
+            "pending_verification",
+          ]),
+          url_image: z.string().optional(),
+          creation_date: z.string(),
+          modification_date: z.string().optional(),
+          role: z.object({
+            id: z.number(),
+            name: z.string(),
+            description: z.string().optional(),
+          }),
+        })
+      )
+    )
     .handler(async ({ input }) => {
       const { limit, offset, status } = input;
-
-      // Use database function fn_user_list_with_roles
-      const result = await query<{ out_user: object }>(
-        `SELECT * FROM fn_user_list_with_roles($1, $2, $3)`,
-        [status, limit, offset]
-      );
+      const result = await query<{
+        out_user: {
+          id: number;
+          name: string;
+          short_name?: string;
+          state: "active" | "suspended" | "banned" | "pending_verification";
+          url_image?: string;
+          creation_date: string;
+          modification_date?: string;
+          role: {
+            id: number;
+            name: string;
+            description?: string;
+          };
+        };
+      }>(`SELECT * FROM fn_user_list_with_roles($1, $2, $3)`, [
+        status,
+        limit,
+        offset,
+      ]);
 
       return result.map((row) => row.out_user);
     }),
 
-  // Admin: Get user by ID
-  getById: adminOrpc
+  getById: authedMiddleware
     .route({
       method: "GET",
       path: "/users/{id}",
-      summary: "Get user details",
-      description:
-        "Get detailed information about a specific user (admin only)",
+      summary: "Obtener detalles de usuario",
+      description: "Obtener información detallada de un usuario específico",
       tags: ["users", "admin"],
     })
     .input(z.object({ id: z.number() }))
+    .output(
+      z.object({
+        id: z.number(),
+        name: z.string(),
+        short_name: z.string().optional(),
+        state: z.enum([
+          "active",
+          "suspended",
+          "banned",
+          "pending_verification",
+        ]),
+        url_image: z.string().optional(),
+        creation_date: z.string(),
+        modification_date: z.string().optional(),
+        role: z.object({
+          id: z.number(),
+          name: z.string(),
+          description: z.string().optional(),
+        }),
+      })
+    )
     .handler(async ({ input }) => {
-      const users = await query(
-        `SELECT u.id, u.name, u.short_name, u.state,
-                u.url_image, u.creation_date, u.modification_date,
-                COALESCE(
-                  json_agg(
-                    json_build_object('id', r.id, 'name', r.name, 'description', r.description)
-                  ) FILTER (WHERE r.id IS NOT NULL),
-                  '[]'
-                ) as roles
-         FROM users u
-         LEFT JOIN role_user ru ON u.id = ru.user_id AND ru.state = 'active'
-         LEFT JOIN role r ON ru.role_id = r.id
-         WHERE u.id = $1
-         GROUP BY u.id`,
-        [input.id]
-      );
+      // Use database function fn_user_get_by_id
+      const result = await query<{
+        fn_user_get_by_id: {
+          id: number;
+          name: string;
+          short_name?: string;
+          state: "active" | "suspended" | "banned" | "pending_verification";
+          url_image?: string;
+          creation_date: string;
+          modification_date?: string;
+          role: {
+            id: number;
+            name: string;
+            description?: string;
+          };
+        } | null;
+      }>(`SELECT fn_user_get_by_id($1)`, [input.id]);
 
-      if (users.length === 0) {
+      if (result.length === 0 || result[0].fn_user_get_by_id === null) {
         throw new ORPCError("NOT_FOUND", {
-          message: "User not found",
+          message: "Usuario no encontrado",
         });
       }
 
-      return users[0];
+      return result[0].fn_user_get_by_id;
     }),
 
-  // Admin: Update user
-  update: adminOrpc
+  update: authedMiddleware
     .route({
       method: "PATCH",
       path: "/users/{id}",
-      summary: "Update user",
-      description: "Update user details (admin only)",
+      summary: "Actualizar usuario",
+      description: "Actualizar detalles de un usuario",
       tags: ["users", "admin"],
     })
     .input(
@@ -150,10 +202,28 @@ export const usersRouter = orpc.router({
         url_image: z.string().optional(),
       })
     )
+    .output(
+      z.object({
+        id: z.number(),
+        name: z.string(),
+        short_name: z.string().optional(),
+        state: z.enum([
+          "active",
+          "suspended",
+          "banned",
+          "pending_verification",
+        ]),
+        url_image: z.string().optional(),
+        creation_date: z.date(),
+        modification_date: z.date(),
+        persona_id: z.number().optional(),
+        access_code_hash: z.string(),
+      })
+    )
     .handler(async ({ input }) => {
       const { id, ...updates } = input;
       const setClause: string[] = [];
-      const values: any[] = [];
+      const values: (string | number)[] = [];
       let paramIndex = 1;
 
       Object.entries(updates).forEach(([key, value]) => {
@@ -166,7 +236,7 @@ export const usersRouter = orpc.router({
 
       if (setClause.length === 0) {
         throw new ORPCError("BAD_REQUEST", {
-          message: "No fields to update",
+          message: "No hay campos para actualizar",
         });
       }
 
@@ -180,20 +250,19 @@ export const usersRouter = orpc.router({
 
       if (result.length === 0) {
         throw new ORPCError("NOT_FOUND", {
-          message: "User not found",
+          message: "Usuario no encontrado",
         });
       }
 
       return result[0];
     }),
 
-  // Admin: Assign role to user
-  assignRole: adminOrpc
+  updateRole: authedMiddleware
     .route({
-      method: "POST",
-      path: "/users/{userId}/roles",
-      summary: "Assign role to user",
-      description: "Assign a role to a user (admin only)",
+      method: "PATCH",
+      path: "/users/{userId}/role",
+      summary: "Actualizar rol de usuario",
+      description: "Cambiar el rol de un usuario (solo admin)",
       tags: ["users", "admin"],
     })
     .input(
@@ -202,91 +271,134 @@ export const usersRouter = orpc.router({
         roleName: z.enum(["admin", "player"]),
       })
     )
+    .output(
+      z.object({
+        success: z.boolean(),
+      })
+    )
     .handler(async ({ input }) => {
-      await query(`SELECT fn_role_assign_to_user($1, $2)`, [
+      // Get role_id from role name
+      const roleResult = await query<{ id: number }>(
+        `SELECT id FROM role WHERE name = $1`,
+        [input.roleName]
+      );
+
+      if (roleResult.length === 0) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Rol no encontrado",
+        });
+      }
+
+      // Update user's role_id
+      await query(`UPDATE users SET role_id = $1 WHERE id = $2`, [
+        roleResult[0].id,
         input.userId,
-        input.roleName,
       ]);
 
       return { success: true };
     }),
 
-  // Admin: Remove role from user
-  removeRole: adminOrpc
-    .route({
-      method: "DELETE",
-      path: "/users/{userId}/roles/{roleName}",
-      summary: "Remove role from user",
-      description: "Remove a role from a user (admin only)",
-      tags: ["users", "admin"],
-    })
-    .input(
-      z.object({
-        userId: z.number(),
-        roleName: z.enum(["admin", "player"]),
-      })
-    )
-    .handler(async ({ input }) => {
-      const result = await query(
-        `UPDATE role_user ru
-         SET state = 'inactive'
-         FROM role r
-         WHERE ru.role_id = r.id
-           AND ru.user_id = $1
-           AND r.name = $2
-         RETURNING ru.id`,
-        [input.userId, input.roleName]
-      );
-
-      if (result.length === 0) {
-        throw new ORPCError("NOT_FOUND", {
-          message: "Role assignment not found",
-        });
-      }
-
-      return { success: true };
-    }),
-
-  // Authenticated: Get my profile
-  me: authedOrpc
+  me: authedMiddleware
     .route({
       method: "GET",
       path: "/users/me",
-      summary: "Get my profile",
-      description: "Get current user's profile information",
+      summary: "Obtener mi perfil",
+      description: "Obtener información del perfil del usuario actual",
       tags: ["users"],
     })
+    .output(
+      z
+        .object({
+          id: z.number(),
+          name: z.string(),
+          short_name: z.string().optional(),
+          state: z.enum([
+            "active",
+            "suspended",
+            "banned",
+            "pending_verification",
+          ]),
+          url_image: z.string().optional(),
+          creation_date: z.string(),
+          modification_date: z.string().optional(),
+          role: z.object({
+            id: z.number(),
+            name: z.string(),
+            description: z.string().optional(),
+          }),
+          person: z
+            .object({
+              first_name: z.string(),
+              second_name: z.string().optional(),
+              paternal_last_name: z.string(),
+              maternal_last_name: z.string().optional(),
+            })
+            .nullable()
+            .optional(),
+        })
+        .nullable()
+    )
     .handler(async ({ context }) => {
-      const userId = context.user?.id;
-
-      // Use database function fn_user_get_profile
-      const result = await query<{ out_profile: object }>(
-        `SELECT * FROM fn_user_get_profile($1)`,
-        [userId]
-      );
+      const userId = context?.session?.userId;
+      const result = await query<{
+        out_profile: {
+          id: number;
+          name: string;
+          short_name?: string;
+          state: "active" | "suspended" | "banned" | "pending_verification";
+          url_image?: string;
+          creation_date: string;
+          modification_date?: string;
+          role: {
+            id: number;
+            name: string;
+            description?: string;
+          };
+          person?: {
+            first_name: string;
+            second_name?: string;
+            paternal_last_name: string;
+            maternal_last_name?: string;
+          } | null;
+        } | null;
+      }>(`SELECT * FROM fn_user_get_profile($1)`, [userId]);
 
       if (result.length === 0) return null;
 
       return result[0].out_profile;
     }),
 
-  // Authenticated: Get my statistics
-  myStats: authedOrpc
+  myStats: authedMiddleware
     .route({
       method: "GET",
       path: "/users/me/stats",
-      summary: "Get my statistics",
-      description: "Get current user's match statistics and performance",
+      summary: "Obtener mis estadísticas",
+      description:
+        "Obtener estadísticas de partidas y rendimiento del usuario actual",
       tags: ["users", "stats"],
     })
+    .output(
+      z.object({
+        totalMatches: z.number(),
+        wins: z.number(),
+        losses: z.number(),
+        winRate: z.number(),
+        currentStreak: z.number(),
+        tournamentsJoined: z.number(),
+      })
+    )
     .handler(async ({ context }) => {
-      const userId = context.user!.id;
-
-      // Use database function fn_user_get_statistics
-      const result = await query<{ out_stats: object }>(
-        `SELECT * FROM fn_user_get_statistics($1)`,
-        [userId]
-      );
+      const userId = context?.session?.userId;
+      const result = await query<{
+        out_stats: {
+          totalMatches: number;
+          wins: number;
+          losses: number;
+          winRate: number;
+          currentStreak: number;
+          tournamentsJoined: number;
+        };
+      }>(`SELECT * FROM fn_user_get_statistics($1)`, [userId]);
 
       if (result.length === 0) {
         return {
@@ -302,13 +414,12 @@ export const usersRouter = orpc.router({
       return result[0].out_stats;
     }),
 
-  // Authenticated: Get my recent matches
-  myRecentMatches: authedOrpc
+  myRecentMatches: authedMiddleware
     .route({
       method: "GET",
       path: "/users/me/matches",
-      summary: "Get my recent matches",
-      description: "Get current user's recent match history",
+      summary: "Obtener mis partidas recientes",
+      description: "Obtener historial de partidas recientes del usuario actual",
       tags: ["users", "matches"],
     })
     .input(
@@ -317,25 +428,72 @@ export const usersRouter = orpc.router({
         offset: z.number().default(0),
       })
     )
+    .output(
+      z.array(
+        z.object({
+          id: z.number(),
+          tournament_id: z.number(),
+          round: z.number(),
+          player1_id: z.number(),
+          player2_id: z.number(),
+          winner_id: z.number().optional(),
+          match_date: z.string().optional(),
+          state: z.enum([
+            "pending",
+            "active",
+            "player1_connected",
+            "player2_connected",
+            "both_connected",
+            "in_selection",
+            "locked",
+            "completed",
+            "cancelled",
+          ]),
+          creation_date: z.string(),
+          modification_date: z.string().optional(),
+        })
+      )
+    )
     .handler(async ({ context, input }) => {
-      const userId = context.user?.id;
-
-      // Use database function fn_user_get_recent_matches
-      const result = await query<{ out_match: object }>(
-        `SELECT * FROM fn_user_get_recent_matches($1, $2, $3)`,
-        [userId, input.limit, input.offset]
-      );
+      const userId = context?.session?.userId;
+      const result = await query<{
+        out_match: {
+          id: number;
+          tournament_id: number;
+          round: number;
+          player1_id: number;
+          player2_id: number;
+          winner_id?: number;
+          match_date?: string;
+          state:
+            | "pending"
+            | "active"
+            | "player1_connected"
+            | "player2_connected"
+            | "both_connected"
+            | "in_selection"
+            | "locked"
+            | "completed"
+            | "cancelled";
+          creation_date: string;
+          modification_date?: string;
+        };
+      }>(`SELECT * FROM fn_user_get_recent_matches($1, $2, $3)`, [
+        userId,
+        input.limit,
+        input.offset,
+      ]);
 
       return result.map((row) => row.out_match);
     }),
 
-  // Authenticated: Get my tournaments
-  myTournaments: authedOrpc
+  myTournaments: authedMiddleware
     .route({
       method: "GET",
       path: "/users/me/tournaments",
-      summary: "Get my tournaments",
-      description: "Get tournaments the current user is participating in",
+      summary: "Obtener mis torneos",
+      description:
+        "Obtener torneos en los que el usuario actual está participando",
       tags: ["users", "tournaments"],
     })
     .input(
@@ -344,29 +502,80 @@ export const usersRouter = orpc.router({
         offset: z.number().default(0),
       })
     )
+    .output(
+      z.array(
+        z.object({
+          id: z.number(),
+          name: z.string(),
+          description: z.string().optional(),
+          game_id: z.number(),
+          start_date: z.string().optional(),
+          end_date: z.string().optional(),
+          max_participants: z.number().optional(),
+          creator_id: z.number(),
+          state: z.enum([
+            "draft",
+            "active",
+            "in_progress",
+            "completed",
+            "cancelled",
+          ]),
+          url_image: z.string().optional(),
+          creation_date: z.string(),
+          modification_date: z.string().optional(),
+        })
+      )
+    )
     .handler(async ({ context, input }) => {
-      const userId = context.user?.id;
+      const userId = context?.session?.userId;
 
       // Use database function fn_user_get_tournaments
-      const result = await query<{ out_tournament: object }>(
-        `SELECT * FROM fn_user_get_tournaments($1, $2, $3)`,
-        [userId, input.limit, input.offset]
-      );
+      const result = await query<{
+        out_tournament: {
+          id: number;
+          name: string;
+          description?: string;
+          game_id: number;
+          start_date?: string;
+          end_date?: string;
+          max_participants?: number;
+          creator_id: number;
+          state: "draft" | "active" | "in_progress" | "completed" | "cancelled";
+          url_image?: string;
+          creation_date: string;
+          modification_date?: string;
+        };
+      }>(`SELECT * FROM fn_user_get_tournaments($1, $2, $3)`, [
+        userId,
+        input.limit,
+        input.offset,
+      ]);
 
       return result.map((row) => row.out_tournament);
     }),
 
   // Authenticated: Get navigation items for current user
-  myNavigation: authedOrpc
+  myNavigation: authedMiddleware
     .route({
       method: "GET",
       path: "/users/me/navigation",
-      summary: "Get my navigation items",
-      description: "Get navigation menu items based on user's active roles",
+      summary: "Obtener mis elementos de navegación",
+      description:
+        "Obtener elementos del menú de navegación basados en los roles activos del usuario",
       tags: ["users", "navigation"],
     })
+    .output(
+      z.array(
+        z.object({
+          title: z.string(),
+          href: z.string(),
+          icon: z.string(),
+          display_order: z.number(),
+        })
+      )
+    )
     .handler(async ({ context }) => {
-      const userId = context.user?.id;
+      const userId = context?.session?.userId;
 
       // Use database function fn_navigation_get_items_for_user
       const result = await query<{
@@ -378,6 +587,4 @@ export const usersRouter = orpc.router({
 
       return result;
     }),
-});
-
-export default usersRouter;
+};

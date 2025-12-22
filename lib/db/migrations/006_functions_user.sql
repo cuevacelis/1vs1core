@@ -62,11 +62,6 @@ BEGIN
         SELECT NOT EXISTS(SELECT 1 FROM users u WHERE u.access_code_hash = v_access_code_hash) INTO v_unique;
     END LOOP;
 
-    -- Insert user
-    INSERT INTO users (name, short_name, access_code_hash, persona_id, url_image, state)
-    VALUES (p_name, p_short_name, v_access_code_hash, p_persona_id, p_url_image, 'active')
-    RETURNING id INTO v_user_id;
-
     -- Get role id
     SELECT r.id INTO v_role_id FROM role r WHERE r.name = p_role_name;
 
@@ -75,12 +70,83 @@ BEGIN
         RAISE EXCEPTION 'El rol % no existe', p_role_name;
     END IF;
 
-    -- Assign role to user
-    INSERT INTO role_user (user_id, role_id, state)
-    VALUES (v_user_id, v_role_id, 'active')
-    ON CONFLICT (user_id, role_id) DO UPDATE SET state = 'active';
+    -- Insert user with role
+    INSERT INTO users (name, short_name, access_code_hash, persona_id, role_id, url_image, state)
+    VALUES (p_name, p_short_name, v_access_code_hash, p_persona_id, v_role_id, p_url_image, 'active')
+    RETURNING id INTO v_user_id;
 
     -- Return user info with plain access code and assigned role
     RETURN QUERY SELECT v_user_id, v_access_code, p_name, p_role_name;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- Function to get user information with role by user ID
+-- ============================================================================
+CREATE OR REPLACE FUNCTION fn_user_get_by_id(
+    p_user_id INTEGER
+)
+RETURNS TABLE(
+    out_user_id INTEGER,
+    out_user_data JSONB,
+    out_role JSONB
+) AS $$
+DECLARE
+    v_user users%ROWTYPE;
+    v_role role%ROWTYPE;
+BEGIN
+    /******************************************************************************
+      NOMBRE:  fn_user_get_by_id
+      PROPÓSITO: Función para obtener información completa de un usuario con su rol
+      INVOCACIÓN: SELECT * FROM fn_user_get_by_id(1);
+      PARÁMETROS:
+        - p_user_id: ID del usuario a consultar
+      RETORNA: TABLE con:
+        - out_user_id: ID del usuario
+        - out_user_data: Datos completos del usuario en formato JSONB
+        - out_role: Datos del rol en formato JSONB
+      VALIDACIONES:
+        - Retorna NULL si el usuario no existe
+        - Solo retorna usuarios activos
+      NOTAS:
+        - No incluye el access_code_hash por seguridad
+        - Incluye toda la información del usuario y su rol
+    ******************************************************************************/
+
+    -- Get user information
+    SELECT u.* INTO v_user
+    FROM users u
+    WHERE u.id = p_user_id
+      AND u.state = 'active';
+
+    -- If user doesn't exist or is not active, return NULL
+    IF v_user.id IS NULL THEN
+        RETURN;
+    END IF;
+
+    -- Get role information
+    SELECT r.* INTO v_role
+    FROM role r
+    WHERE r.id = v_user.role_id;
+
+    -- Return user and role data
+    RETURN QUERY SELECT
+        v_user.id,
+        jsonb_build_object(
+            'id', v_user.id,
+            'name', v_user.name,
+            'short_name', v_user.short_name,
+            'state', v_user.state,
+            'url_image', v_user.url_image,
+            'creation_date', v_user.creation_date,
+            'modification_date', v_user.modification_date,
+            'persona_id', v_user.persona_id,
+            'role_id', v_user.role_id
+        ),
+        jsonb_build_object(
+            'id', v_role.id,
+            'name', v_role.name,
+            'description', v_role.description
+        );
 END;
 $$ LANGUAGE plpgsql;

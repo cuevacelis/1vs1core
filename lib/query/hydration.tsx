@@ -12,24 +12,6 @@ import { createQueryClient } from "./client";
  */
 export const getQueryClient = cache(createQueryClient);
 
-/**
- * Hydration boundary for Server Components
- * Wraps components that need hydrated query data from server
- *
- * Usage in Server Components:
- * ```tsx
- * export default function Page() {
- *   const queryClient = getQueryClient()
- *   queryClient.prefetchQuery(orpc.users.me.queryOptions())
- *
- *   return (
- *     <HydrateClient client={queryClient}>
- *       <ClientComponent />
- *     </HydrateClient>
- *   )
- * }
- * ```
- */
 export function HydrateClient(props: {
   children: React.ReactNode;
   client: QueryClient;

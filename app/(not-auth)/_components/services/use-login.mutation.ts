@@ -21,11 +21,14 @@ import { orpc } from "@/lib/orpc/orpc.client";
 export function useLoginMutation() {
   const queryClient = useQueryClient();
 
-  return useMutation({
-    ...orpc.auth.login.mutationOptions(),
-    onSuccess: () => {
-      // Invalidate all queries after successful login
-      queryClient.invalidateQueries();
-    },
-  });
+  return useMutation(
+    orpc.auth.login.mutationOptions({
+      context: { cache: true },
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: orpc.auth.login.key(),
+        });
+      },
+    })
+  );
 }

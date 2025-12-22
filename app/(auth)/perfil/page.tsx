@@ -29,9 +29,7 @@ export default function Profile() {
   const shortName = profile?.short_name || "";
   const firstInitial =
     profile?.person?.first_name?.[0] || profile?.name?.[0] || "U";
-  const roles =
-    profile?.roles?.map((r: { name: string }) => r.name).join(", ") ||
-    "Jugador";
+  const roleName = profile?.role?.name || "Jugador";
   const isActive = profile?.state === "active";
 
   const totalMatches = stats?.totalMatches || 0;
@@ -48,7 +46,7 @@ export default function Profile() {
           displayName={displayName}
           shortName={shortName}
           firstInitial={firstInitial}
-          roles={roles}
+          role={roleName}
           isActive={isActive}
         />
 

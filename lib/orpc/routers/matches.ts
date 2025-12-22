@@ -1,49 +1,98 @@
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { query } from "../../db/config";
-import { adminOrpc, authedOrpc, orpc } from "../server";
+import { authedMiddleware } from "../middlewares/auth";
 
-const matchesRouter = orpc.router({
+const matchStateEnum = z.enum([
+  "pending",
+  "active",
+  "player1_connected",
+  "player2_connected",
+  "both_connected",
+  "in_selection",
+  "locked",
+  "completed",
+  "cancelled",
+]);
+
+const matchOutputSchema = z.object({
+  id: z.number(),
+  tournament_id: z.number(),
+  round: z.number(),
+  player1_id: z.number(),
+  player2_id: z.number(),
+  winner_id: z.number().optional(),
+  match_date: z.string().optional(),
+  state: matchStateEnum,
+  creation_date: z.string(),
+  modification_date: z.string().optional(),
+});
+
+type MatchState =
+  | "pending"
+  | "active"
+  | "player1_connected"
+  | "player2_connected"
+  | "both_connected"
+  | "in_selection"
+  | "locked"
+  | "completed"
+  | "cancelled";
+
+interface MatchOutput {
+  id: number;
+  tournament_id: number;
+  round: number;
+  player1_id: number;
+  player2_id: number;
+  winner_id?: number;
+  match_date?: string;
+  state: MatchState;
+  creation_date: string;
+  modification_date?: string;
+}
+
+export const matchesRouter = {
   // Get matches for a tournament
-  listByTournament: orpc
+  listByTournament: authedMiddleware
     .route({
       method: "GET",
       path: "/matches/tournament/{tournamentId}",
-      summary: "List tournament matches",
-      description: "Get all matches for a specific tournament",
+      summary: "Listar partidas de torneo",
+      description: "Obtener todas las partidas para un torneo específico",
       tags: ["matches", "tournament"],
     })
     .input(z.object({ tournamentId: z.number() }))
+    .output(z.array(matchOutputSchema))
     .handler(async ({ input }) => {
       // Use database function fn_match_list_by_tournament
-      const result = await query<{ out_match: object }>(
-        `SELECT * FROM fn_match_list_by_tournament($1)`,
-        [input.tournamentId]
-      );
+      const result = await query<{
+        out_match: MatchOutput;
+      }>(`SELECT * FROM fn_match_list_by_tournament($1)`, [input.tournamentId]);
 
       return result.map((row) => row.out_match);
     }),
 
   // Get match by ID
-  getById: orpc
+  getById: authedMiddleware
     .route({
       method: "GET",
       path: "/matches/{id}",
-      summary: "Get match details",
-      description: "Get detailed information about a specific match",
+      summary: "Obtener detalles de partida",
+      description: "Obtener información detallada de una partida específica",
       tags: ["matches"],
     })
     .input(z.object({ id: z.number() }))
+    .output(matchOutputSchema)
     .handler(async ({ input }) => {
       // Use database function fn_match_get_by_id
-      const result = await query<{ out_match: object }>(
-        `SELECT * FROM fn_match_get_by_id($1)`,
-        [input.id]
-      );
+      const result = await query<{
+        out_match: MatchOutput | null;
+      }>(`SELECT * FROM fn_match_get_by_id($1)`, [input.id]);
 
-      if (result.length === 0) {
+      if (result.length === 0 || result[0].out_match === null) {
         throw new ORPCError("NOT_FOUND", {
-          message: "Match not found",
+          message: "Partida no encontrada",
         });
       }
 
@@ -51,13 +100,13 @@ const matchesRouter = orpc.router({
     }),
 
   // Admin: Create matches for a tournament (bracket generation)
-  generateMatches: adminOrpc
+  generateMatches: authedMiddleware
     .route({
       method: "POST",
       path: "/matches/generate",
-      summary: "Generate tournament bracket",
+      summary: "Generar bracket de torneo",
       description:
-        "Generate matches for a tournament based on participants (admin only)",
+        "Generar partidas para un torneo basado en participantes (solo admin)",
       tags: ["matches", "tournament", "admin"],
     })
     .input(
@@ -66,12 +115,13 @@ const matchesRouter = orpc.router({
         round: z.number().default(1),
       })
     )
+    .output(z.array(matchOutputSchema))
     .handler(async ({ input }) => {
       // Use database function fn_match_generate_for_tournament
       const result = await query<{
         out_success: boolean;
         out_message: string;
-        out_matches: object;
+        out_matches: MatchOutput[];
       }>(`SELECT * FROM fn_match_generate_for_tournament($1, $2)`, [
         input.tournamentId,
         input.round,
@@ -79,7 +129,7 @@ const matchesRouter = orpc.router({
 
       if (result.length === 0 || !result[0].out_success) {
         throw new ORPCError("BAD_REQUEST", {
-          message: result[0]?.out_message || "Failed to generate matches",
+          message: result[0]?.out_message || "Error al generar partidas",
         });
       }
 
@@ -87,28 +137,35 @@ const matchesRouter = orpc.router({
     }),
 
   // Admin: Activate a match (generate access codes for players)
-  activateMatch: adminOrpc
+  activateMatch: authedMiddleware
     .route({
       method: "POST",
       path: "/matches/{matchId}/activate",
-      summary: "Activate match",
+      summary: "Activar partida",
       description:
-        "Activate a match to make it available for players (admin only)",
+        "Activar una partida para hacerla disponible para jugadores (solo admin)",
       tags: ["matches", "admin"],
     })
     .input(z.object({ matchId: z.number() }))
+    .output(matchOutputSchema)
     .handler(async ({ input }) => {
       // Use database function fn_match_activate
       const result = await query<{
         out_success: boolean;
         out_message: string;
-        out_match: object | null;
+        out_match: MatchOutput | null;
       }>(`SELECT * FROM fn_match_activate($1)`, [input.matchId]);
 
       if (result.length === 0 || !result[0].out_success) {
         throw new ORPCError("NOT_FOUND", {
           message:
-            result[0]?.out_message || "Match not found or already active",
+            result[0]?.out_message || "Partida no encontrada o ya activa",
+        });
+      }
+
+      if (!result[0].out_match) {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: "Error al activar la partida",
         });
       }
 
@@ -116,48 +173,50 @@ const matchesRouter = orpc.router({
     }),
 
   // Player: Get active match for current user
-  getMyActiveMatch: authedOrpc
+  getMyActiveMatch: authedMiddleware
     .route({
       method: "GET",
       path: "/matches/my-active",
-      summary: "Get my active match",
-      description: "Get the current user's active match",
+      summary: "Obtener mi partida activa",
+      description: "Obtener la partida activa del usuario actual",
       tags: ["matches", "player"],
     })
+    .output(matchOutputSchema.nullable())
     .handler(async ({ context }) => {
-      const userId = context.user?.id;
+      const userId = context?.session?.userId;
 
       // Use database function fn_match_get_active_for_user
-      const result = await query<{ out_match: object }>(
-        `SELECT * FROM fn_match_get_active_for_user($1)`,
-        [userId]
-      );
+      const result = await query<{
+        out_match: MatchOutput | null;
+      }>(`SELECT * FROM fn_match_get_active_for_user($1)`, [userId]);
 
       return result.length > 0 ? result[0].out_match : null;
     }),
 
   // Player: Connect to match
-  connectToMatch: authedOrpc
+  connectToMatch: authedMiddleware
     .route({
       method: "POST",
       path: "/matches/{matchId}/connect",
-      summary: "Connect to match",
-      description: "Connect to a match as a player",
+      summary: "Conectar a partida",
+      description: "Conectarse a una partida como jugador",
       tags: ["matches", "player"],
     })
     .input(z.object({ matchId: z.number() }))
+    .output(matchOutputSchema)
     .handler(async ({ input, context }) => {
-      const userId = context.user?.id;
+      const userId = context?.session?.userId;
 
       // Use database function fn_match_connect
       const result = await query<{
         out_success: boolean;
         out_message: string;
-        out_match: object | null;
+        out_match: MatchOutput | null;
       }>(`SELECT * FROM fn_match_connect($1, $2)`, [input.matchId, userId]);
 
       if (result.length === 0 || !result[0].out_success) {
-        const message = result[0]?.out_message || "Failed to connect to match";
+        const message =
+          result[0]?.out_message || "Error al conectar a la partida";
 
         if (message.includes("No eres parte")) {
           throw new ORPCError("FORBIDDEN", { message });
@@ -168,16 +227,23 @@ const matchesRouter = orpc.router({
         }
       }
 
+      if (!result[0].out_match) {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: "Error al procesar la conexión",
+        });
+      }
+
       return result[0].out_match;
     }),
 
   // Admin: Complete match
-  completeMatch: adminOrpc
+  completeMatch: authedMiddleware
     .route({
       method: "POST",
       path: "/matches/{matchId}/complete",
-      summary: "Complete match",
-      description: "Mark a match as completed with a winner (admin only)",
+      summary: "Completar partida",
+      description:
+        "Marcar una partida como completada con un ganador (solo admin)",
       tags: ["matches", "admin"],
     })
     .input(
@@ -186,12 +252,13 @@ const matchesRouter = orpc.router({
         winnerId: z.number(),
       })
     )
+    .output(matchOutputSchema)
     .handler(async ({ input }) => {
       // Use database function fn_match_complete
       const result = await query<{
         out_success: boolean;
         out_message: string;
-        out_match: object | null;
+        out_match: MatchOutput | null;
       }>(`SELECT * FROM fn_match_complete($1, $2)`, [
         input.matchId,
         input.winnerId,
@@ -199,12 +266,16 @@ const matchesRouter = orpc.router({
 
       if (result.length === 0 || !result[0].out_success) {
         throw new ORPCError("NOT_FOUND", {
-          message: result[0]?.out_message || "Match not found",
+          message: result[0]?.out_message || "Partida no encontrada",
+        });
+      }
+
+      if (!result[0].out_match) {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: "Error al completar la partida",
         });
       }
 
       return result[0].out_match;
     }),
-});
-
-export default matchesRouter;
+};

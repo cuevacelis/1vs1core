@@ -9,12 +9,8 @@ CREATE INDEX IF NOT EXISTS idx_person_state ON person(state);
 -- Users table indexes
 CREATE INDEX IF NOT EXISTS idx_users_access_code ON users(access_code_hash);
 CREATE INDEX IF NOT EXISTS idx_users_persona ON users(persona_id);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role_id);
 CREATE INDEX IF NOT EXISTS idx_users_state ON users(state);
-
--- Role_user table indexes
-CREATE INDEX IF NOT EXISTS idx_role_user_user ON role_user(user_id);
-CREATE INDEX IF NOT EXISTS idx_role_user_role ON role_user(role_id);
-CREATE INDEX IF NOT EXISTS idx_role_user_state ON role_user(state);
 
 -- Module table indexes
 CREATE INDEX IF NOT EXISTS idx_module_role ON module(role_id);

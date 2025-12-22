@@ -28,9 +28,7 @@ export default function Home() {
     setError("");
 
     try {
-      await loginMutation.mutateAsync({ accessCode });
-
-      // Redirect to dashboard after successful login
+      await loginMutation.mutateAsync({ accessCode: accessCode });
       router.push("/dashboard");
       router.refresh();
     } catch (err) {

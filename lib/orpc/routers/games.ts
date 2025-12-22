@@ -1,47 +1,82 @@
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { query } from "../../db/config";
-import { adminOrpc, orpc } from "../server";
+import { authedMiddleware } from "../middlewares/auth";
 
-const gamesRouter = orpc.router({
+export const gamesRouter = {
   // List all games
-  list: orpc
+  list: authedMiddleware
     .route({
       method: "GET",
       path: "/games",
-      summary: "List games",
-      description: "Get all active games",
+      summary: "Listar juegos",
+      description: "Obtener todos los juegos activos",
       tags: ["games"],
     })
+    .output(
+      z.array(
+        z.object({
+          id: z.number(),
+          name: z.string(),
+          type: z.string(),
+          description: z.string().optional(),
+          state: z.enum(["active", "inactive"]),
+          creation_date: z.string(),
+        })
+      )
+    )
     .handler(async () => {
       // Use database function fn_game_list
-      const result = await query<{ out_game: object }>(
-        `SELECT * FROM fn_game_list()`
-      );
+      const result = await query<{
+        out_game: {
+          id: number;
+          name: string;
+          type: string;
+          description?: string;
+          state: "active" | "inactive";
+          creation_date: string;
+        };
+      }>(`SELECT * FROM fn_game_list()`);
 
       return result.map((row) => row.out_game);
     }),
 
   // Get game by ID
-  getById: orpc
+  getById: authedMiddleware
     .route({
       method: "GET",
       path: "/games/{id}",
-      summary: "Get game details",
-      description: "Get detailed information about a specific game",
+      summary: "Obtener detalles de juego",
+      description: "Obtener información detallada de un juego específico",
       tags: ["games"],
     })
     .input(z.object({ id: z.number() }))
+    .output(
+      z.object({
+        id: z.number(),
+        name: z.string(),
+        type: z.string(),
+        description: z.string().optional(),
+        state: z.enum(["active", "inactive"]),
+        creation_date: z.string(),
+      })
+    )
     .handler(async ({ input }) => {
       // Use database function fn_game_get_by_id
-      const result = await query<{ out_game: object }>(
-        `SELECT * FROM fn_game_get_by_id($1)`,
-        [input.id]
-      );
+      const result = await query<{
+        out_game: {
+          id: number;
+          name: string;
+          type: string;
+          description?: string;
+          state: "active" | "inactive";
+          creation_date: string;
+        } | null;
+      }>(`SELECT * FROM fn_game_get_by_id($1)`, [input.id]);
 
-      if (result.length === 0) {
+      if (result.length === 0 || result[0].out_game === null) {
         throw new ORPCError("NOT_FOUND", {
-          message: "Game not found",
+          message: "Juego no encontrado",
         });
       }
 
@@ -49,12 +84,12 @@ const gamesRouter = orpc.router({
     }),
 
   // Admin: Create game
-  create: adminOrpc
+  create: authedMiddleware
     .route({
       method: "POST",
       path: "/games",
-      summary: "Create game",
-      description: "Create a new game (admin only)",
+      summary: "Crear juego",
+      description: "Crear un nuevo juego (solo admin)",
       tags: ["games", "admin"],
     })
     .input(
@@ -64,21 +99,39 @@ const gamesRouter = orpc.router({
         description: z.string().optional(),
       })
     )
+    .output(
+      z.object({
+        id: z.number(),
+        name: z.string(),
+        type: z.string(),
+        description: z.string().optional(),
+        state: z.enum(["active", "inactive"]),
+        creation_date: z.string(),
+      })
+    )
     .handler(async ({ input }) => {
       // Use database function fn_game_create
-      const result = await query<{ out_game: object }>(
-        `SELECT * FROM fn_game_create($1, $2, $3)`,
-        [input.name, input.type, input.description || null]
-      );
+      const result = await query<{
+        out_game: {
+          id: number;
+          name: string;
+          type: string;
+          description?: string;
+          state: "active" | "inactive";
+          creation_date: string;
+        };
+      }>(`SELECT * FROM fn_game_create($1, $2, $3)`, [
+        input.name,
+        input.type,
+        input.description || null,
+      ]);
 
       if (result.length === 0) {
         throw new ORPCError("INTERNAL_SERVER_ERROR", {
-          message: "Failed to create game",
+          message: "Error al crear el juego",
         });
       }
 
       return result[0].out_game;
     }),
-});
-
-export default gamesRouter;
+};

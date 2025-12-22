@@ -1,36 +1,57 @@
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { query } from "../../db/config";
-import { adminOrpc, authedOrpc, orpc } from "../server";
+import { authedMiddleware } from "../middlewares/auth";
 
-const championsRouter = orpc.router({
+export const championsRouter = {
   // Get champions by game
-  listByGame: orpc
+  listByGame: authedMiddleware
     .route({
       method: "GET",
       path: "/champions/game/{gameId}",
-      summary: "List champions by game",
-      description: "Returns all active champions for a specific game",
+      summary: "Listar campeones por juego",
+      description:
+        "Retorna todos los campeones activos para un juego específico",
       tags: ["champions"],
     })
     .input(z.object({ gameId: z.number() }))
+    .output(
+      z.array(
+        z.object({
+          id: z.number(),
+          name: z.string(),
+          game_id: z.number(),
+          description: z.string().optional(),
+          url_image: z.string().optional(),
+          state: z.enum(["active", "inactive"]),
+          creation_date: z.string(),
+        })
+      )
+    )
     .handler(async ({ input }) => {
       // Use database function fn_champion_list_by_game
-      const result = await query<{ out_champion: object }>(
-        `SELECT * FROM fn_champion_list_by_game($1)`,
-        [input.gameId]
-      );
+      const result = await query<{
+        out_champion: {
+          id: number;
+          name: string;
+          game_id: number;
+          description?: string;
+          url_image?: string;
+          state: "active" | "inactive";
+          creation_date: string;
+        };
+      }>(`SELECT * FROM fn_champion_list_by_game($1)`, [input.gameId]);
 
       return result.map((row) => row.out_champion);
     }),
 
   // Admin: Create champion
-  create: adminOrpc
+  create: authedMiddleware
     .route({
       method: "POST",
       path: "/champions",
-      summary: "Create champion",
-      description: "Create a new champion (admin only)",
+      summary: "Crear campeón",
+      description: "Crear un nuevo campeón (solo admin)",
       tags: ["champions", "admin"],
     })
     .input(
@@ -41,21 +62,39 @@ const championsRouter = orpc.router({
         url_image: z.string().optional(),
       })
     )
+    .output(
+      z.object({
+        id: z.number(),
+        name: z.string(),
+        game_id: z.number(),
+        description: z.string().optional(),
+        url_image: z.string().optional(),
+        state: z.enum(["active", "inactive"]),
+        creation_date: z.string(),
+      })
+    )
     .handler(async ({ input }) => {
       // Use database function fn_champion_create
-      const result = await query<{ out_champion: object }>(
-        `SELECT * FROM fn_champion_create($1, $2, $3, $4)`,
-        [
-          input.name,
-          input.game_id,
-          input.description || null,
-          input.url_image || null,
-        ]
-      );
+      const result = await query<{
+        out_champion: {
+          id: number;
+          name: string;
+          game_id: number;
+          description?: string;
+          url_image?: string;
+          state: "active" | "inactive";
+          creation_date: string;
+        };
+      }>(`SELECT * FROM fn_champion_create($1, $2, $3, $4)`, [
+        input.name,
+        input.game_id,
+        input.description || null,
+        input.url_image || null,
+      ]);
 
       if (result.length === 0) {
         throw new ORPCError("INTERNAL_SERVER_ERROR", {
-          message: "Failed to create champion",
+          message: "Error al crear el campeón",
         });
       }
 
@@ -63,12 +102,13 @@ const championsRouter = orpc.router({
     }),
 
   // Player: Select champion for match
-  selectChampion: authedOrpc
+  selectChampion: authedMiddleware
     .route({
       method: "POST",
       path: "/champions/select",
-      summary: "Select champion",
-      description: "Select a champion for a match (real-time preview)",
+      summary: "Seleccionar campeón",
+      description:
+        "Seleccionar un campeón para una partida (vista previa en tiempo real)",
       tags: ["champions", "match"],
     })
     .input(
@@ -78,14 +118,35 @@ const championsRouter = orpc.router({
         role: z.string().optional(),
       })
     )
+    .output(
+      z.object({
+        id: z.number(),
+        match_id: z.number(),
+        player_id: z.number(),
+        champion_id: z.number(),
+        role: z.string().optional(),
+        is_locked: z.boolean(),
+        selection_date: z.string(),
+        lock_date: z.string().optional(),
+      })
+    )
     .handler(async ({ input, context }) => {
-      const userId = context.user?.id;
+      const userId = context?.session?.userId;
 
       // Use database function fn_champion_select
       const result = await query<{
         out_success: boolean;
         out_message: string;
-        out_selection: object | null;
+        out_selection: {
+          id: number;
+          match_id: number;
+          player_id: number;
+          champion_id: number;
+          role?: string;
+          is_locked: boolean;
+          selection_date: string;
+          lock_date?: string;
+        } | null;
       }>(`SELECT * FROM fn_champion_select($1, $2, $3, $4)`, [
         input.matchId,
         userId,
@@ -94,7 +155,8 @@ const championsRouter = orpc.router({
       ]);
 
       if (result.length === 0 || !result[0].out_success) {
-        const message = result[0]?.out_message || "Failed to select champion";
+        const message =
+          result[0]?.out_message || "Error al seleccionar campeón";
 
         if (message.includes("No eres parte")) {
           throw new ORPCError("FORBIDDEN", { message });
@@ -107,27 +169,55 @@ const championsRouter = orpc.router({
         }
       }
 
+      if (!result[0].out_selection) {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: "Error al procesar la selección",
+        });
+      }
+
       return result[0].out_selection;
     }),
 
   // Player: Lock champion selection
-  lockSelection: authedOrpc
+  lockSelection: authedMiddleware
     .route({
       method: "POST",
       path: "/champions/lock",
-      summary: "Lock champion selection",
-      description: "Confirm and lock champion selection for a match",
+      summary: "Bloquear selección de campeón",
+      description:
+        "Confirmar y bloquear la selección de campeón para una partida",
       tags: ["champions", "match"],
     })
     .input(z.object({ matchId: z.number() }))
+    .output(
+      z.object({
+        id: z.number(),
+        match_id: z.number(),
+        player_id: z.number(),
+        champion_id: z.number(),
+        role: z.string().optional(),
+        is_locked: z.boolean(),
+        selection_date: z.string(),
+        lock_date: z.string().optional(),
+      })
+    )
     .handler(async ({ input, context }) => {
-      const userId = context.user?.id;
+      const userId = context?.session?.userId;
 
       // Use database function fn_champion_lock_selection
       const result = await query<{
         out_success: boolean;
         out_message: string;
-        out_selection: object | null;
+        out_selection: {
+          id: number;
+          match_id: number;
+          player_id: number;
+          champion_id: number;
+          role?: string;
+          is_locked: boolean;
+          selection_date: string;
+          lock_date?: string;
+        } | null;
       }>(`SELECT * FROM fn_champion_lock_selection($1, $2)`, [
         input.matchId,
         userId,
@@ -135,7 +225,13 @@ const championsRouter = orpc.router({
 
       if (result.length === 0 || !result[0].out_success) {
         throw new ORPCError("BAD_REQUEST", {
-          message: result[0]?.out_message || "No champion selected",
+          message: result[0]?.out_message || "No hay campeón seleccionado",
+        });
+      }
+
+      if (!result[0].out_selection) {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: "Error al bloquear la selección",
         });
       }
 
@@ -143,24 +239,45 @@ const championsRouter = orpc.router({
     }),
 
   // Get champion selections for a match
-  getMatchSelections: orpc
+  getMatchSelections: authedMiddleware
     .route({
       method: "GET",
       path: "/champions/match/{matchId}",
-      summary: "Get match champion selections",
-      description: "Get all champion selections for a specific match",
+      summary: "Obtener selecciones de campeones de partida",
+      description:
+        "Obtener todas las selecciones de campeones para una partida específica",
       tags: ["champions", "match"],
     })
     .input(z.object({ matchId: z.number() }))
+    .output(
+      z.array(
+        z.object({
+          id: z.number(),
+          match_id: z.number(),
+          player_id: z.number(),
+          champion_id: z.number(),
+          role: z.string().optional(),
+          is_locked: z.boolean(),
+          selection_date: z.string(),
+          lock_date: z.string().optional(),
+        })
+      )
+    )
     .handler(async ({ input }) => {
       // Use database function fn_champion_get_match_selections
-      const result = await query<{ out_selection: object }>(
-        `SELECT * FROM fn_champion_get_match_selections($1)`,
-        [input.matchId]
-      );
+      const result = await query<{
+        out_selection: {
+          id: number;
+          match_id: number;
+          player_id: number;
+          champion_id: number;
+          role?: string;
+          is_locked: boolean;
+          selection_date: string;
+          lock_date?: string;
+        };
+      }>(`SELECT * FROM fn_champion_get_match_selections($1)`, [input.matchId]);
 
       return result.map((row) => row.out_selection);
     }),
-});
-
-export default championsRouter;
+};

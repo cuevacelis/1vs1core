@@ -15,6 +15,14 @@ CREATE TABLE IF NOT EXISTS person (
     modification_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Role table (must be created before users table due to FK constraint)
+CREATE TABLE IF NOT EXISTS role (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    description TEXT,
+    creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
@@ -23,28 +31,10 @@ CREATE TABLE IF NOT EXISTS users (
     short_name VARCHAR(50),
     state user_state DEFAULT 'active',
     persona_id INTEGER REFERENCES person(id) ON DELETE SET NULL,
+    role_id INTEGER NOT NULL REFERENCES role(id) ON DELETE RESTRICT,
     url_image TEXT,
     creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     modification_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Role table
-CREATE TABLE IF NOT EXISTS role (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL UNIQUE,
-    description TEXT,
-    creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Role_user table
-CREATE TABLE IF NOT EXISTS role_user (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    role_id INTEGER NOT NULL REFERENCES role(id) ON DELETE CASCADE,
-    state entity_state DEFAULT 'active',
-    creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    modification_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, role_id)
 );
 
 -- Module table for role-based access control
@@ -54,6 +44,10 @@ CREATE TABLE IF NOT EXISTS module (
     id SERIAL PRIMARY KEY,
     role_id INTEGER NOT NULL REFERENCES role(id) ON DELETE CASCADE,
     url_pattern VARCHAR(200) NOT NULL,
+    title VARCHAR(100),
+    icon VARCHAR(50),
+    display_order INTEGER DEFAULT 0,
+    is_visible_in_nav BOOLEAN DEFAULT true,
     description TEXT,
     state entity_state DEFAULT 'active',
     creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -32,7 +32,7 @@ interface UserProfile {
   name: string;
   short_name?: string;
   url_image?: string;
-  roles: Array<{ id: number; name: string; description?: string }>;
+  role: { id: number; name: string; description?: string };
 }
 
 export function NavUser() {
@@ -88,7 +88,7 @@ export function NavUser() {
   const userProfile: UserProfile = user as UserProfile;
   const userName = userProfile.name || "Usuario";
   const userAvatar = userProfile.url_image || "";
-  const userRoles = userProfile.roles || [];
+  const userRole = userProfile.role?.name || "Usuario";
 
   return (
     <SidebarMenu>
@@ -108,9 +108,7 @@ export function NavUser() {
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{userName}</span>
                 <span className="text-muted-foreground truncate text-xs">
-                  {userRoles.length > 0
-                    ? userRoles.map((r) => r.name).join(", ")
-                    : "Usuario"}
+                  {userRole}
                 </span>
               </div>
               <IconDotsVertical className="ml-auto size-4" />
@@ -133,9 +131,7 @@ export function NavUser() {
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{userName}</span>
                   <span className="text-muted-foreground truncate text-xs">
-                    {userRoles.length > 0
-                      ? userRoles.map((r) => r.name).join(", ")
-                      : "Usuario"}
+                    {userRole}
                   </span>
                 </div>
               </div>
