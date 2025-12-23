@@ -1,7 +1,6 @@
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { query } from "../../db/config";
-import type { User } from "../../db/types";
 import { authedMiddleware } from "../middlewares/auth";
 
 export const usersRouter = {
@@ -20,7 +19,7 @@ export const usersRouter = {
         persona_id: z.number().optional(),
         url_image: z.string().optional(),
         role: z.enum(["admin", "player"]).default("player"),
-      })
+      }),
     )
     .output(
       z.object({
@@ -28,7 +27,7 @@ export const usersRouter = {
         name: z.string(),
         access_code: z.string(),
         message: z.string(),
-      })
+      }),
     )
     .handler(async ({ input }) => {
       const result = await query<{
@@ -74,30 +73,30 @@ export const usersRouter = {
         limit: z.number().default(50),
         offset: z.number().default(0),
         status: z.boolean().optional(),
-      })
+      }),
     )
     .output(
       z.array(
         z.object({
           id: z.number(),
           name: z.string(),
-          short_name: z.string().optional(),
+          short_name: z.string().nullable(),
           state: z.enum([
             "active",
             "suspended",
             "banned",
             "pending_verification",
           ]),
-          url_image: z.string().optional(),
+          url_image: z.string().nullable(),
           creation_date: z.string(),
-          modification_date: z.string().optional(),
+          modification_date: z.string().nullable(),
           role: z.object({
             id: z.number(),
             name: z.string(),
-            description: z.string().optional(),
+            description: z.string().nullable(),
           }),
-        })
-      )
+        }),
+      ),
     )
     .handler(async ({ input }) => {
       const { limit, offset, status } = input;
@@ -105,15 +104,15 @@ export const usersRouter = {
         out_user: {
           id: number;
           name: string;
-          short_name?: string;
+          short_name: string | null;
           state: "active" | "suspended" | "banned" | "pending_verification";
-          url_image?: string;
+          url_image: string | null;
           creation_date: string;
-          modification_date?: string;
+          modification_date: string | null;
           role: {
             id: number;
             name: string;
-            description?: string;
+            description: string | null;
           };
         };
       }>(`SELECT * FROM fn_user_list_with_roles($1, $2, $3)`, [
@@ -138,22 +137,22 @@ export const usersRouter = {
       z.object({
         id: z.number(),
         name: z.string(),
-        short_name: z.string().optional(),
+        short_name: z.string().nullable(),
         state: z.enum([
           "active",
           "suspended",
           "banned",
           "pending_verification",
         ]),
-        url_image: z.string().optional(),
+        url_image: z.string().nullable(),
         creation_date: z.string(),
-        modification_date: z.string().optional(),
+        modification_date: z.string().nullable(),
         role: z.object({
           id: z.number(),
           name: z.string(),
-          description: z.string().optional(),
+          description: z.string().nullable(),
         }),
-      })
+      }),
     )
     .handler(async ({ input }) => {
       // Use database function fn_user_get_by_id
@@ -161,15 +160,15 @@ export const usersRouter = {
         fn_user_get_by_id: {
           id: number;
           name: string;
-          short_name?: string;
+          short_name: string | null;
           state: "active" | "suspended" | "banned" | "pending_verification";
-          url_image?: string;
+          url_image: string | null;
           creation_date: string;
-          modification_date?: string;
+          modification_date: string | null;
           role: {
             id: number;
             name: string;
-            description?: string;
+            description: string | null;
           };
         } | null;
       }>(`SELECT fn_user_get_by_id($1)`, [input.id]);
@@ -200,25 +199,25 @@ export const usersRouter = {
           .enum(["active", "suspended", "banned", "pending_verification"])
           .optional(),
         url_image: z.string().optional(),
-      })
+      }),
     )
     .output(
       z.object({
         id: z.number(),
         name: z.string(),
-        short_name: z.string().optional(),
+        short_name: z.string().nullable(),
         state: z.enum([
           "active",
           "suspended",
           "banned",
           "pending_verification",
         ]),
-        url_image: z.string().optional(),
-        creation_date: z.date(),
-        modification_date: z.date(),
-        persona_id: z.number().optional(),
+        url_image: z.string().nullable(),
+        creation_date: z.string(),
+        modification_date: z.string().nullable(),
+        persona_id: z.number().nullable(),
         access_code_hash: z.string(),
-      })
+      }),
     )
     .handler(async ({ input }) => {
       const { id, ...updates } = input;
@@ -241,11 +240,21 @@ export const usersRouter = {
       }
 
       values.push(id);
-      const result = await query<User>(
+      const result = await query<{
+        id: number;
+        name: string;
+        short_name: string | null;
+        state: "active" | "suspended" | "banned" | "pending_verification";
+        url_image: string | null;
+        creation_date: string;
+        modification_date: string | null;
+        persona_id: number | null;
+        access_code_hash: string;
+      }>(
         `UPDATE users SET ${setClause.join(
-          ", "
+          ", ",
         )} WHERE id = $${paramIndex} RETURNING *`,
-        values
+        values,
       );
 
       if (result.length === 0) {
@@ -269,18 +278,18 @@ export const usersRouter = {
       z.object({
         userId: z.number(),
         roleName: z.enum(["admin", "player"]),
-      })
+      }),
     )
     .output(
       z.object({
         success: z.boolean(),
-      })
+      }),
     )
     .handler(async ({ input }) => {
       // Get role_id from role name
       const roleResult = await query<{ id: number }>(
         `SELECT id FROM role WHERE name = $1`,
-        [input.roleName]
+        [input.roleName],
       );
 
       if (roleResult.length === 0) {
@@ -311,32 +320,31 @@ export const usersRouter = {
         .object({
           id: z.number(),
           name: z.string(),
-          short_name: z.string().optional(),
+          short_name: z.string().nullable(),
           state: z.enum([
             "active",
             "suspended",
             "banned",
             "pending_verification",
           ]),
-          url_image: z.string().optional(),
+          url_image: z.string().nullable(),
           creation_date: z.string(),
-          modification_date: z.string().optional(),
+          modification_date: z.string(),
           role: z.object({
             id: z.number(),
             name: z.string(),
-            description: z.string().optional(),
+            description: z.string().nullable(),
           }),
           person: z
             .object({
               first_name: z.string(),
-              second_name: z.string().optional(),
+              second_name: z.string().nullable(),
               paternal_last_name: z.string(),
-              maternal_last_name: z.string().optional(),
+              maternal_last_name: z.string().nullable(),
             })
-            .nullable()
-            .optional(),
+            .nullable(),
         })
-        .nullable()
+        .nullable(),
     )
     .handler(async ({ context }) => {
       const userId = context?.session?.userId;
@@ -344,21 +352,21 @@ export const usersRouter = {
         out_profile: {
           id: number;
           name: string;
-          short_name?: string;
+          short_name: string | null;
           state: "active" | "suspended" | "banned" | "pending_verification";
-          url_image?: string;
+          url_image: string | null;
           creation_date: string;
-          modification_date?: string;
+          modification_date: string;
           role: {
             id: number;
             name: string;
-            description?: string;
+            description: string | null;
           };
-          person?: {
+          person: {
             first_name: string;
-            second_name?: string;
+            second_name: string | null;
             paternal_last_name: string;
-            maternal_last_name?: string;
+            maternal_last_name: string | null;
           } | null;
         } | null;
       }>(`SELECT * FROM fn_user_get_profile($1)`, [userId]);
@@ -385,7 +393,7 @@ export const usersRouter = {
         winRate: z.number(),
         currentStreak: z.number(),
         tournamentsJoined: z.number(),
-      })
+      }),
     )
     .handler(async ({ context }) => {
       const userId = context?.session?.userId;
@@ -426,7 +434,7 @@ export const usersRouter = {
       z.object({
         limit: z.number().default(10),
         offset: z.number().default(0),
-      })
+      }),
     )
     .output(
       z.array(
@@ -439,9 +447,9 @@ export const usersRouter = {
           player1_name: z.string(),
           player2_id: z.number(),
           player2_name: z.string(),
-          winner_id: z.number().optional(),
-          winner_name: z.string().optional(),
-          match_date: z.string().optional(),
+          winner_id: z.number().nullable(),
+          winner_name: z.string().nullable(),
+          match_date: z.string().nullable(),
           state: z.enum([
             "pending",
             "active",
@@ -454,16 +462,16 @@ export const usersRouter = {
             "cancelled",
           ]),
           creation_date: z.string(),
-          modification_date: z.string().optional(),
-          player1_champion_id: z.number().optional(),
-          player1_champion_name: z.string().optional(),
-          player2_champion_id: z.number().optional(),
-          player2_champion_name: z.string().optional(),
+          modification_date: z.string().nullable(),
+          player1_champion_id: z.number().nullable(),
+          player1_champion_name: z.string().nullable(),
+          player2_champion_id: z.number().nullable(),
+          player2_champion_name: z.string().nullable(),
           opponent_name: z.string(),
-          my_champion: z.string().optional(),
+          my_champion: z.string().nullable(),
           result: z.string(),
-        })
-      )
+        }),
+      ),
     )
     .handler(async ({ context, input }) => {
       const userId = context?.session?.userId;
@@ -477,9 +485,9 @@ export const usersRouter = {
           player1_name: string;
           player2_id: number;
           player2_name: string;
-          winner_id?: number;
-          winner_name?: string;
-          match_date?: string;
+          winner_id: number | null;
+          winner_name: string | null;
+          match_date: string | null;
           state:
             | "pending"
             | "active"
@@ -491,13 +499,13 @@ export const usersRouter = {
             | "completed"
             | "cancelled";
           creation_date: string;
-          modification_date?: string;
-          player1_champion_id?: number;
-          player1_champion_name?: string;
-          player2_champion_id?: number;
-          player2_champion_name?: string;
+          modification_date: string | null;
+          player1_champion_id: number | null;
+          player1_champion_name: string | null;
+          player2_champion_id: number | null;
+          player2_champion_name: string | null;
           opponent_name: string;
-          my_champion?: string;
+          my_champion: string | null;
           result: string;
         };
       }>(`SELECT * FROM fn_user_get_recent_matches($1, $2, $3)`, [
@@ -522,19 +530,19 @@ export const usersRouter = {
       z.object({
         limit: z.number().default(10),
         offset: z.number().default(0),
-      })
+      }),
     )
     .output(
       z.array(
         z.object({
           id: z.number(),
           name: z.string(),
-          description: z.string().optional(),
+          description: z.string().nullable(),
           game_id: z.number(),
           game_name: z.string(),
-          start_date: z.string().optional(),
-          end_date: z.string().optional(),
-          max_participants: z.number().optional(),
+          start_date: z.string().nullable(),
+          end_date: z.string().nullable(),
+          max_participants: z.number().nullable(),
           creator_id: z.number(),
           state: z.enum([
             "draft",
@@ -550,13 +558,13 @@ export const usersRouter = {
             "completed",
             "cancelled",
           ]),
-          url_image: z.string().optional(),
+          url_image: z.string().nullable(),
           creation_date: z.string(),
-          modification_date: z.string().optional(),
-          registration_date: z.string().optional(),
-          participation_state: z.string().optional(),
-        })
-      )
+          modification_date: z.string().nullable(),
+          registration_date: z.string().nullable(),
+          participation_state: z.string().nullable(),
+        }),
+      ),
     )
     .handler(async ({ context, input }) => {
       const userId = context?.session?.userId;
@@ -566,12 +574,12 @@ export const usersRouter = {
         out_tournament: {
           id: number;
           name: string;
-          description?: string;
+          description: string | null;
           game_id: number;
           game_name: string;
-          start_date?: string;
-          end_date?: string;
-          max_participants?: number;
+          start_date: string | null;
+          end_date: string | null;
+          max_participants: number | null;
           creator_id: number;
           state: "draft" | "active" | "in_progress" | "completed" | "cancelled";
           tournament_state:
@@ -580,11 +588,11 @@ export const usersRouter = {
             | "in_progress"
             | "completed"
             | "cancelled";
-          url_image?: string;
+          url_image: string | null;
           creation_date: string;
-          modification_date?: string;
-          registration_date?: string;
-          participation_state?: string;
+          modification_date: string | null;
+          registration_date: string | null;
+          participation_state: string | null;
         };
       }>(`SELECT * FROM fn_user_get_tournaments($1, $2, $3)`, [
         userId,
@@ -612,8 +620,8 @@ export const usersRouter = {
           href: z.string(),
           icon: z.string(),
           display_order: z.number(),
-        })
-      )
+        }),
+      ),
     )
     .handler(async ({ context }) => {
       const userId = context?.session?.userId;

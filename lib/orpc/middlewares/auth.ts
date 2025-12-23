@@ -15,5 +15,5 @@ export const authedMiddleware = basedMiddleware.use(
         session: session,
       },
     });
-  })
+  }),
 );

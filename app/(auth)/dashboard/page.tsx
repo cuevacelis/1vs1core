@@ -346,7 +346,7 @@ export default function Dashboard() {
                                   year: "numeric",
                                   month: "short",
                                   day: "numeric",
-                                }
+                                },
                               )
                             : "N/A"}
                         </TableCell>

@@ -21,12 +21,12 @@ export const championsRouter = {
           id: z.number(),
           name: z.string(),
           game_id: z.number(),
-          description: z.string().optional(),
-          url_image: z.string().optional(),
+          description: z.string().nullable(),
+          url_image: z.string().nullable(),
           state: z.enum(["active", "inactive"]),
           creation_date: z.string(),
-        })
-      )
+        }),
+      ),
     )
     .handler(async ({ input }) => {
       // Use database function fn_champion_list_by_game
@@ -35,8 +35,8 @@ export const championsRouter = {
           id: number;
           name: string;
           game_id: number;
-          description?: string;
-          url_image?: string;
+          description: string | null;
+          url_image: string | null;
           state: "active" | "inactive";
           creation_date: string;
         };
@@ -60,18 +60,18 @@ export const championsRouter = {
         game_id: z.number(),
         description: z.string().optional(),
         url_image: z.string().optional(),
-      })
+      }),
     )
     .output(
       z.object({
         id: z.number(),
         name: z.string(),
         game_id: z.number(),
-        description: z.string().optional(),
-        url_image: z.string().optional(),
+        description: z.string().nullable(),
+        url_image: z.string().nullable(),
         state: z.enum(["active", "inactive"]),
         creation_date: z.string(),
-      })
+      }),
     )
     .handler(async ({ input }) => {
       // Use database function fn_champion_create
@@ -80,8 +80,8 @@ export const championsRouter = {
           id: number;
           name: string;
           game_id: number;
-          description?: string;
-          url_image?: string;
+          description: string | null;
+          url_image: string | null;
           state: "active" | "inactive";
           creation_date: string;
         };
@@ -116,7 +116,7 @@ export const championsRouter = {
         matchId: z.number(),
         championId: z.number(),
         role: z.string().optional(),
-      })
+      }),
     )
     .output(
       z.object({
@@ -124,11 +124,11 @@ export const championsRouter = {
         match_id: z.number(),
         player_id: z.number(),
         champion_id: z.number(),
-        role: z.string().optional(),
+        role: z.string().nullable(),
         is_locked: z.boolean(),
         selection_date: z.string(),
-        lock_date: z.string().optional(),
-      })
+        lock_date: z.string().nullable(),
+      }),
     )
     .handler(async ({ input, context }) => {
       const userId = context?.session?.userId;
@@ -142,10 +142,10 @@ export const championsRouter = {
           match_id: number;
           player_id: number;
           champion_id: number;
-          role?: string;
+          role: string | null;
           is_locked: boolean;
           selection_date: string;
-          lock_date?: string;
+          lock_date: string | null;
         } | null;
       }>(`SELECT * FROM fn_champion_select($1, $2, $3, $4)`, [
         input.matchId,
@@ -195,11 +195,11 @@ export const championsRouter = {
         match_id: z.number(),
         player_id: z.number(),
         champion_id: z.number(),
-        role: z.string().optional(),
+        role: z.string().nullable(),
         is_locked: z.boolean(),
         selection_date: z.string(),
-        lock_date: z.string().optional(),
-      })
+        lock_date: z.string().nullable(),
+      }),
     )
     .handler(async ({ input, context }) => {
       const userId = context?.session?.userId;
@@ -213,10 +213,10 @@ export const championsRouter = {
           match_id: number;
           player_id: number;
           champion_id: number;
-          role?: string;
+          role: string | null;
           is_locked: boolean;
           selection_date: string;
-          lock_date?: string;
+          lock_date: string | null;
         } | null;
       }>(`SELECT * FROM fn_champion_lock_selection($1, $2)`, [
         input.matchId,
@@ -256,12 +256,12 @@ export const championsRouter = {
           match_id: z.number(),
           player_id: z.number(),
           champion_id: z.number(),
-          role: z.string().optional(),
+          role: z.string().nullable(),
           is_locked: z.boolean(),
           selection_date: z.string(),
-          lock_date: z.string().optional(),
-        })
-      )
+          lock_date: z.string().nullable(),
+        }),
+      ),
     )
     .handler(async ({ input }) => {
       // Use database function fn_champion_get_match_selections
@@ -271,10 +271,10 @@ export const championsRouter = {
           match_id: number;
           player_id: number;
           champion_id: number;
-          role?: string;
+          role: string | null;
           is_locked: boolean;
           selection_date: string;
-          lock_date?: string;
+          lock_date: string | null;
         };
       }>(`SELECT * FROM fn_champion_get_match_selections($1)`, [input.matchId]);
 

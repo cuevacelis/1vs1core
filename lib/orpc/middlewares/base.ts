@@ -8,6 +8,6 @@ export const basedMiddleware = os.use(
         headers: await headers(),
         cookies: await cookies(),
       },
-    })
-  )
+    }),
+  ),
 );

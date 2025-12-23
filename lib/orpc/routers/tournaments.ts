@@ -15,16 +15,16 @@ const tournamentStateEnum = z.enum([
 const tournamentOutputSchema = z.object({
   id: z.number(),
   name: z.string(),
-  description: z.string().optional(),
+  description: z.string().nullable(),
   game_id: z.number(),
-  start_date: z.string().optional(),
-  end_date: z.string().optional(),
-  max_participants: z.number().optional(),
+  start_date: z.string().nullable(),
+  end_date: z.string().nullable(),
+  max_participants: z.number().nullable(),
   creator_id: z.number(),
   state: tournamentStateEnum,
-  url_image: z.string().optional(),
+  url_image: z.string().nullable(),
   creation_date: z.string(),
-  modification_date: z.string().optional(),
+  modification_date: z.string().nullable(),
 });
 
 // Extended schema for list endpoint with game details
@@ -43,16 +43,16 @@ type TournamentState =
 interface TournamentOutput {
   id: number;
   name: string;
-  description?: string;
+  description: string | null;
   game_id: number;
-  start_date?: string;
-  end_date?: string;
-  max_participants?: number;
+  start_date: string | null;
+  end_date: string | null;
+  max_participants: number | null;
   creator_id: number;
   state: TournamentState;
-  url_image?: string;
+  url_image: string | null;
   creation_date: string;
-  modification_date?: string;
+  modification_date: string | null;
 }
 
 export const tournamentsRouter = {

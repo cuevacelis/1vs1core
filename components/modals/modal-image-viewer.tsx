@@ -34,7 +34,7 @@ export function ModalImageViewer({
   const [zoom, setZoom] = useState(100);
   const [imageError, setImageError] = useState(!isValidUrl);
   const [currentImageUrl, setCurrentImageUrl] = useState(
-    isValidUrl ? imageUrl : fallbackImageUrl ?? ""
+    isValidUrl ? imageUrl : (fallbackImageUrl ?? ""),
   );
 
   const handleZoomIn = () => {
@@ -99,7 +99,7 @@ export function ModalImageViewer({
     if (!open) {
       setZoom(100);
       setImageError(!isValidUrl);
-      setCurrentImageUrl(isValidUrl ? imageUrl : fallbackImageUrl ?? "");
+      setCurrentImageUrl(isValidUrl ? imageUrl : (fallbackImageUrl ?? ""));
     }
   };
 
@@ -170,7 +170,7 @@ export function ModalImageViewer({
               src={currentImageUrl}
               alt={imageAlt}
               className={cn(
-                "object-contain max-w-full h-auto transition-transform duration-200"
+                "object-contain max-w-full h-auto transition-transform duration-200",
               )}
               style={{ transform: `scale(${zoom / 100})` }}
               loading="lazy"

@@ -2,7 +2,7 @@ import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { createSession, destroySession } from "../../auth/session";
 import { query } from "../../db/config";
-import type { RoleJsonb, User, UserJsonb } from "../../db/types";
+import type { User } from "../../db/types";
 import { authedMiddleware } from "../middlewares/auth";
 import { basedMiddleware } from "../middlewares/base";
 
@@ -17,19 +17,19 @@ const userStateEnum = z.enum([
 const roleOutputSchema = z.object({
   id: z.number(),
   name: z.string(),
-  description: z.string().optional(),
+  description: z.string().nullable(),
 });
 
 const loginOutputSchema = z.object({
   user: z.object({
     id: z.number(),
     name: z.string(),
-    short_name: z.string().optional(),
+    short_name: z.string().nullable(),
     state: userStateEnum,
-    url_image: z.string().optional(),
+    url_image: z.string().nullable(),
     creation_date: z.string(),
-    modification_date: z.string().optional(),
-    persona_id: z.number().optional(),
+    modification_date: z.string().nullable(),
+    persona_id: z.number().nullable(),
     access_code_hash: z.string(),
     role: roleOutputSchema,
   }),
@@ -44,12 +44,12 @@ const meOutputSchema = z
   .object({
     id: z.number(),
     name: z.string(),
-    short_name: z.string().optional(),
+    short_name: z.string().nullable(),
     state: userStateEnum,
-    url_image: z.string().optional(),
+    url_image: z.string().nullable(),
     creation_date: z.string(),
-    modification_date: z.string().optional(),
-    persona_id: z.number().optional(),
+    modification_date: z.string().nullable(),
+    persona_id: z.number().nullable(),
     role: roleOutputSchema,
   })
   .nullable();
@@ -73,8 +73,22 @@ export const authRouter = {
       const { accessCode } = input;
       const result = await query<{
         out_user_id: number;
-        out_user_data: UserJsonb; // JSONB type - dates are strings
-        out_role: RoleJsonb; // JSONB type - dates are strings
+        out_user_data: {
+          id: number;
+          name: string;
+          short_name: string | null;
+          state: "active" | "suspended" | "banned" | "pending_verification";
+          url_image: string | null;
+          creation_date: string;
+          modification_date: string | null;
+          persona_id: number | null;
+          access_code_hash: string;
+        };
+        out_role: {
+          id: number;
+          name: string;
+          description: string | null;
+        };
       }>("SELECT * FROM fn_auth_verify_access_code($1)", [accessCode]);
 
       if (result.length === 0) {
@@ -95,17 +109,17 @@ export const authRouter = {
         user: {
           id: user_data.id,
           name: user_data.name,
-          short_name: user_data.short_name || undefined,
+          short_name: user_data.short_name,
           state: user_data.state,
-          url_image: user_data.url_image || undefined,
+          url_image: user_data.url_image,
           creation_date: user_data.creation_date, // Already ISO string from JSONB
-          modification_date: user_data.modification_date || undefined,
-          persona_id: user_data.persona_id || undefined,
+          modification_date: user_data.modification_date,
+          persona_id: user_data.persona_id,
           access_code_hash: user_data.access_code_hash,
           role: {
             id: role.id,
             name: role.name,
-            description: role.description || undefined,
+            description: role.description,
           },
         },
         accessCode,
@@ -182,16 +196,16 @@ export const authRouter = {
       return {
         id: user.id,
         name: user.name,
-        short_name: user.short_name || undefined,
+        short_name: user.short_name,
         state: user.state,
-        url_image: user.url_image || undefined,
+        url_image: user.url_image,
         creation_date: user.creation_date.toISOString(),
-        modification_date: user.modification_date?.toISOString(),
-        persona_id: user.persona_id || undefined,
+        modification_date: user.modification_date?.toISOString() ?? null,
+        persona_id: user.persona_id,
         role: {
           id: user.role_id,
           name: user.role_name,
-          description: user.role_description || undefined,
+          description: user.role_description,
         },
       };
     }),

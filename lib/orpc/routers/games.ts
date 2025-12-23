@@ -19,11 +19,11 @@ export const gamesRouter = {
           id: z.number(),
           name: z.string(),
           type: z.string(),
-          description: z.string().optional(),
+          description: z.string().nullable(),
           state: z.enum(["active", "inactive"]),
           creation_date: z.string(),
-        })
-      )
+        }),
+      ),
     )
     .handler(async () => {
       // Use database function fn_game_list
@@ -32,7 +32,7 @@ export const gamesRouter = {
           id: number;
           name: string;
           type: string;
-          description?: string;
+          description: string | null;
           state: "active" | "inactive";
           creation_date: string;
         };
@@ -56,10 +56,10 @@ export const gamesRouter = {
         id: z.number(),
         name: z.string(),
         type: z.string(),
-        description: z.string().optional(),
+        description: z.string().nullable(),
         state: z.enum(["active", "inactive"]),
         creation_date: z.string(),
-      })
+      }),
     )
     .handler(async ({ input }) => {
       // Use database function fn_game_get_by_id
@@ -68,7 +68,7 @@ export const gamesRouter = {
           id: number;
           name: string;
           type: string;
-          description?: string;
+          description: string | null;
           state: "active" | "inactive";
           creation_date: string;
         } | null;
@@ -97,17 +97,17 @@ export const gamesRouter = {
         name: z.string().min(1).max(100),
         type: z.string().min(1).max(50),
         description: z.string().optional(),
-      })
+      }),
     )
     .output(
       z.object({
         id: z.number(),
         name: z.string(),
         type: z.string(),
-        description: z.string().optional(),
+        description: z.string().nullable(),
         state: z.enum(["active", "inactive"]),
         creation_date: z.string(),
-      })
+      }),
     )
     .handler(async ({ input }) => {
       // Use database function fn_game_create
@@ -116,7 +116,7 @@ export const gamesRouter = {
           id: number;
           name: string;
           type: string;
-          description?: string;
+          description: string | null;
           state: "active" | "inactive";
           creation_date: string;
         };

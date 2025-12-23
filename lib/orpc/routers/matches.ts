@@ -21,11 +21,11 @@ const matchOutputSchema = z.object({
   round: z.number(),
   player1_id: z.number(),
   player2_id: z.number(),
-  winner_id: z.number().optional(),
-  match_date: z.string().optional(),
+  winner_id: z.number().nullable(),
+  match_date: z.string().nullable(),
   state: matchStateEnum,
   creation_date: z.string(),
-  modification_date: z.string().optional(),
+  modification_date: z.string().nullable(),
 });
 
 type MatchState =
@@ -45,11 +45,11 @@ interface MatchOutput {
   round: number;
   player1_id: number;
   player2_id: number;
-  winner_id?: number;
-  match_date?: string;
+  winner_id: number | null;
+  match_date: string | null;
   state: MatchState;
   creation_date: string;
-  modification_date?: string;
+  modification_date: string | null;
 }
 
 export const matchesRouter = {
@@ -113,7 +113,7 @@ export const matchesRouter = {
       z.object({
         tournamentId: z.number(),
         round: z.number().default(1),
-      })
+      }),
     )
     .output(z.array(matchOutputSchema))
     .handler(async ({ input }) => {
@@ -188,7 +188,7 @@ export const matchesRouter = {
           player2_name: z.string(),
           tournament_name: z.string(),
         })
-        .nullable()
+        .nullable(),
     )
     .handler(async ({ context }) => {
       const userId = context?.session?.userId;
@@ -264,7 +264,7 @@ export const matchesRouter = {
       z.object({
         matchId: z.number(),
         winnerId: z.number(),
-      })
+      }),
     )
     .output(matchOutputSchema)
     .handler(async ({ input }) => {

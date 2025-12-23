@@ -13,25 +13,25 @@
  * ```
  */
 export class ErrorQuery extends Error {
-	statusCode?: number;
-	error?: unknown;
-	constructor({
-		message,
-		statusCode,
-		error,
-	}: {
-		message: string;
-		statusCode?: number;
-		error?: unknown;
-	}) {
-		super(message);
+  statusCode?: number;
+  error?: unknown;
+  constructor({
+    message,
+    statusCode,
+    error,
+  }: {
+    message: string;
+    statusCode?: number;
+    error?: unknown;
+  }) {
+    super(message);
 
-		if (Error.captureStackTrace) {
-			Error.captureStackTrace(this, ErrorQuery);
-		}
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, ErrorQuery);
+    }
 
-		this.name = this.constructor.name;
-		this.statusCode = statusCode;
-		this.error = error;
-	}
+    this.name = this.constructor.name;
+    this.statusCode = statusCode;
+    this.error = error;
+  }
 }

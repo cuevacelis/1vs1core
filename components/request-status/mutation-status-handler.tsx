@@ -12,7 +12,7 @@ import type { IMixedMessageItem } from "../validate/message/mixed-message";
 
 interface IMutationStatusHandlerProps<
   TError extends ErrorQuery | Error,
-  TContext = unknown
+  TContext = unknown,
 > {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mutations: UseMutationResult<unknown, TError, any, TContext>[];
@@ -27,7 +27,7 @@ interface IMutationStatusHandlerProps<
 
 export function MutationStatusHandler<
   TError extends ErrorQuery | Error,
-  TContext = unknown
+  TContext = unknown,
 >({
   mutations,
   hideLoadingModal = false,
@@ -40,11 +40,11 @@ export function MutationStatusHandler<
 }: IMutationStatusHandlerProps<TError, TContext>) {
   // Estado de las mutaciones
   const isPending = mutations?.some(
-    (mutation) => mutation?.status === "pending"
+    (mutation) => mutation?.status === "pending",
   );
   const hasError = mutations?.some((mutation) => mutation.status === "error");
   const hasSuccess = mutations?.some(
-    (mutation) => mutation.status === "success"
+    (mutation) => mutation.status === "success",
   );
 
   const shouldShowLoadingModal = isPending && !hideLoadingModal;
@@ -118,7 +118,7 @@ export function MutationStatusHandler<
 }
 
 function getSuccessMsg(
-  mutations?: IMutationStatusHandlerProps<ErrorQuery | Error>["mutations"]
+  mutations?: IMutationStatusHandlerProps<ErrorQuery | Error>["mutations"],
 ) {
   if (!mutations?.length) return "¡No hay datos disponibles!";
 
@@ -139,14 +139,14 @@ function getSuccessMsg(
 }
 
 function getErrorMsg(
-  mutations?: IMutationStatusHandlerProps<ErrorQuery | Error>["mutations"]
+  mutations?: IMutationStatusHandlerProps<ErrorQuery | Error>["mutations"],
 ): string[] | string {
   if (!mutations?.length) return "¡Un error desconocido ocurrió!";
 
   const messages = mutations
     .filter((mutation) => mutation.status === "error")
     .flatMap((mutation) =>
-      mutation.error instanceof Error ? [mutation.error.message] : []
+      mutation.error instanceof Error ? [mutation.error.message] : [],
     );
 
   return messages.length
@@ -157,7 +157,7 @@ function getErrorMsg(
 }
 
 function getMixedMessages(
-  mutations?: IMutationStatusHandlerProps<ErrorQuery | Error>["mutations"]
+  mutations?: IMutationStatusHandlerProps<ErrorQuery | Error>["mutations"],
 ): IMixedMessageItem[] {
   if (!mutations?.length) return [];
 
@@ -195,7 +195,7 @@ function getMixedMessages(
   // Si no hay mensajes específicos, agregar mensajes genéricos
   if (successItems.length === 0 && errorItems.length === 0) {
     const hasSuccess = mutations.some(
-      (mutation) => mutation.status === "success"
+      (mutation) => mutation.status === "success",
     );
     const hasError = mutations.some((mutation) => mutation.status === "error");
 

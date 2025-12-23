@@ -29,6 +29,6 @@ export function useLoginMutation() {
           queryKey: orpc.auth.login.key(),
         });
       },
-    })
+    }),
   );
 }

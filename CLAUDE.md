@@ -214,9 +214,38 @@ export const myRouter = orpc.router({
 **Type Safety Rules**:
 - Input types are automatically inferred from `.input()` schema
 - Output types MUST match `.output()` schema exactly
-- Use `z.string().optional()` for optional string fields (NOT `.nullable()`)
-- Use `z.date()` for Date objects, `z.string()` for ISO date strings
-- Database query result types should match output schema structure
+- **CRITICAL - `.nullable()` vs `.optional()` in Output Schemas**:
+  - **Use `.nullable()`** when PostgreSQL returns `null` for a field (e.g., `short_name: z.string().nullable()`)
+    - PostgreSQL ALWAYS includes all fields in JSON responses, even when they have no value (returns `null`)
+    - `.nullable()` means: `string | null` (field exists but value can be null)
+  - **Use `.optional()`** ONLY when the field might not exist in the response object
+    - `.optional()` means: `string | undefined` (field may not be present)
+    - This is RARE in database responses since PostgreSQL returns all fields
+  - **Common Pattern**: Most database fields that can be NULL should use `.nullable()` NOT `.optional()`
+  - **Example (CORRECT)**:
+    ```typescript
+    .output(z.object({
+      id: z.number(),
+      name: z.string(),
+      short_name: z.string().nullable(),     // ✅ DB returns null
+      url_image: z.string().nullable(),       // ✅ DB returns null
+      description: z.string().nullable(),     // ✅ DB returns null
+    }))
+    ```
+  - **Example (WRONG)**:
+    ```typescript
+    .output(z.object({
+      id: z.number(),
+      name: z.string(),
+      short_name: z.string().optional(),     // ❌ DB returns null, not undefined
+      url_image: z.string().optional(),       // ❌ Will cause validation errors
+    }))
+    ```
+- TypeScript type definitions MUST match Zod schemas exactly:
+  - `.nullable()` in Zod → `string | null` in TypeScript (NOT `string?`)
+  - `.optional()` in Zod → `string?` in TypeScript (field may not exist)
+- Use `z.date()` for Date objects, `z.string()` for ISO date strings from PostgreSQL
+- Database query result types should match output schema structure exactly
 
 **Error Messages**: ALL error messages MUST be in Spanish
 ```typescript
