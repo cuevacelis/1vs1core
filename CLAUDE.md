@@ -831,6 +831,363 @@ queryClient.invalidateQueries({
 });
 ```
 
+### Request Status Handling
+
+**CRITICAL**: All components that use TanStack Query hooks (queries or mutations) MUST use `QueryStatusHandler` or `MutationStatusHandler` to properly handle loading, error, and success states.
+
+**Components Location**: `components/request-status/`
+
+#### QueryStatusHandler
+
+Use `QueryStatusHandler` to wrap content that depends on query results. It handles:
+- ✅ Loading states (shows loading spinner)
+- ✅ Error states (shows error message)
+- ✅ Empty data states (optional)
+- ✅ Success state (renders children)
+
+**Pattern**:
+
+```typescript
+"use client";
+
+import { QueryStatusHandler } from "@/components/request-status/query-status-handler";
+import { useEntityQuery } from "./_components/services/use-entity.query";
+
+export function MyComponent() {
+  const dataQuery = useEntityQuery();
+
+  return (
+    <QueryStatusHandler queries={[dataQuery]}>
+      {/* This content only renders when query is successful */}
+      <div>{dataQuery.data?.name}</div>
+    </QueryStatusHandler>
+  );
+}
+```
+
+**Multiple Queries**:
+
+```typescript
+import { QueryStatusHandler } from "@/components/request-status/query-status-handler";
+import { useUserProfileQuery } from "./_components/services/use-user-profile.query";
+import { useUserStatsQuery } from "./_components/services/use-user-stats.query";
+
+export function Dashboard() {
+  const profileQuery = useUserProfileQuery();
+  const statsQuery = useUserStatsQuery();
+
+  return (
+    <QueryStatusHandler queries={[profileQuery, statsQuery]}>
+      {/* Only renders when ALL queries are successful */}
+      <ProfileInfo data={profileQuery.data} />
+      <StatsCards data={statsQuery.data} />
+    </QueryStatusHandler>
+  );
+}
+```
+
+**With Table Component**:
+
+```typescript
+import {
+  createColumnHelper,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+} from "@tanstack/react-table";
+import { QueryStatusHandler } from "@/components/request-status/query-status-handler";
+import { TableCompleteComponent } from "@/components/table";
+import { fuzzyFilter } from "@/components/table/utils/fuzzy-filter";
+import { useStudentsListQuery } from "./_components/services/use-students-list.query";
+
+const columnHelper = createColumnHelper<Student>();
+
+export function StudentsTable() {
+  const studentsQuery = useStudentsListQuery();
+
+  const columns = useMemo(
+    () => [
+      columnHelper.display({
+        id: "numero",
+        header: "N°",
+        size: 50,
+        cell: ({ row }) => row.index + 1,
+      }),
+      columnHelper.accessor("name", {
+        header: "Nombre",
+        size: 300,
+      }),
+      // ... more columns
+    ],
+    [],
+  );
+
+  return (
+    <QueryStatusHandler queries={[studentsQuery]}>
+      <TableCompleteComponent
+        tableOptions={{
+          data: studentsQuery.data ?? [],
+          columns,
+          getCoreRowModel: getCoreRowModel(),
+          getPaginationRowModel: getPaginationRowModel(),
+          getSortedRowModel: getSortedRowModel(),
+          getFilteredRowModel: getFilteredRowModel(),
+          filterFns: {
+            fuzzy: fuzzyFilter,
+          },
+        }}
+        search={{
+          show: true,
+          searchParamKey: "searchStudents",
+        }}
+        footer={{
+          showPagination: true,
+        }}
+      />
+    </QueryStatusHandler>
+  );
+}
+```
+
+#### MutationStatusHandler
+
+Use `MutationStatusHandler` to handle mutation states (create, update, delete operations). It handles:
+- ✅ Loading states during mutation
+- ✅ Error states with error messages
+- ✅ Success states (optional success message)
+
+**Pattern**:
+
+```typescript
+"use client";
+
+import { MutationStatusHandler } from "@/components/request-status/mutation-status-handler";
+import { useCreateTournamentMutation } from "./_components/services/use-tournament-create.mutation";
+
+export function CreateTournamentForm() {
+  const createMutation = useCreateTournamentMutation();
+
+  const handleSubmit = async (data: FormData) => {
+    await createMutation.mutateAsync(data);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <MutationStatusHandler mutation={createMutation} />
+
+      {/* Form fields */}
+      <input name="name" />
+      <button type="submit" disabled={createMutation.isPending}>
+        Crear Torneo
+      </button>
+    </form>
+  );
+}
+```
+
+**Combined with Query**:
+
+```typescript
+import { QueryStatusHandler } from "@/components/request-status/query-status-handler";
+import { MutationStatusHandler } from "@/components/request-status/mutation-status-handler";
+import { useEntityQuery } from "./_components/services/use-entity.query";
+import { useUpdateEntityMutation } from "./_components/services/use-entity-update.mutation";
+
+export function EditEntityForm({ id }: { id: number }) {
+  const entityQuery = useEntityQuery(id);
+  const updateMutation = useUpdateEntityMutation();
+
+  const handleSubmit = async (data: FormData) => {
+    await updateMutation.mutateAsync({ id, ...data });
+  };
+
+  return (
+    <QueryStatusHandler queries={[entityQuery]}>
+      <form onSubmit={handleSubmit}>
+        <MutationStatusHandler mutation={updateMutation} />
+
+        {/* Form pre-filled with query data */}
+        <input name="name" defaultValue={entityQuery.data?.name} />
+        <button type="submit" disabled={updateMutation.isPending}>
+          Actualizar
+        </button>
+      </form>
+    </QueryStatusHandler>
+  );
+}
+```
+
+#### Complete Example
+
+Full example with dialog, query, and mutation:
+
+```typescript
+import {
+  createColumnHelper,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+} from "@tanstack/react-table";
+import { BookOpen, Calendar, Users } from "lucide-react";
+import { useMemo } from "react";
+import { QueryStatusHandler } from "@/components/request-status/query-status-handler";
+import { TableCompleteComponent } from "@/components/table";
+import { fuzzyFilter } from "@/components/table/utils/fuzzy-filter";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import type { ICourseStudent } from "../../../_components/services/use-course-student.query";
+import { CourseInfoItem } from "../../course-info-item";
+import {
+  type IFetchListEnrollments,
+  useEnrollmentsStudentQuery,
+} from "./_components/services/use-enrollments-student.query";
+
+interface EnrolledStudentsModalProps {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  course: ICourseStudent | null;
+}
+
+const columnHelper =
+  createColumnHelper<NonNullable<IFetchListEnrollments["data"]>[number]>();
+
+export function EnrolledStudentsModal({
+  open,
+  setOpen,
+  course,
+}: EnrolledStudentsModalProps) {
+  const dataEnrollments = useEnrollmentsStudentQuery({
+    params: {
+      ccurso: Number(course?.ccurso),
+    },
+    config: {
+      enabled: open,
+      gcTime: 0,
+    },
+  });
+
+  const columns = useMemo(
+    () => [
+      columnHelper.display({
+        id: "numero",
+        header: "N°",
+        size: 50,
+        cell: ({ row }) => row.index + 1,
+      }),
+      columnHelper.accessor("dpersona", {
+        header: "Estudiante",
+        size: 450,
+        cell: ({ row }) => (
+          <div className="flex items-center space-x-2">
+            <Avatar className="h-8 w-8">
+              <AvatarImage
+                src={row.original.url_foto}
+                alt={row.original.dpersona}
+              />
+              <AvatarFallback>
+                {row.original.dpersona.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <span>{row.original.dpersona}</span>
+          </div>
+        ),
+      }),
+      columnHelper.accessor("dcarrera", {
+        header: "Carrera",
+        size: 450,
+      }),
+      columnHelper.accessor("tcorreo_inst", {
+        header: "Correo institucional",
+        size: 200,
+      }),
+    ],
+    [],
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="sm:max-w-7xl 2xl:max-w-full">
+        <DialogHeader>
+          <DialogTitle className="text-xl">Mis compañeros</DialogTitle>
+          <DialogDescription className="text-base sr-only">
+            Este informe muestra el estado de los alumnos que están matriculados
+          </DialogDescription>
+          <Separator className="mt-4" />
+        </DialogHeader>
+
+        <section className="max-h-[calc(100vh-150px)] overflow-y-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mt-4">
+            <CourseInfoItem
+              icon={Users}
+              label="Docente"
+              value={course?.docente?.map((item) => item.nombre).join(", ")}
+            />
+            <CourseInfoItem
+              icon={BookOpen}
+              label="Asignatura"
+              value={course?.dcurso}
+            />
+            <CourseInfoItem
+              icon={Calendar}
+              label="Grupo"
+              value={course?.grupo}
+            />
+          </div>
+
+          <QueryStatusHandler queries={[dataEnrollments]}>
+            <TableCompleteComponent
+              tableOptions={{
+                data: dataEnrollments.data?.data ?? [],
+                columns,
+                getRowId: (row) => `${row.dpersona}-${row.scarrera}`,
+                getCoreRowModel: getCoreRowModel(),
+                getPaginationRowModel: getPaginationRowModel(),
+                getSortedRowModel: getSortedRowModel(),
+                getFilteredRowModel: getFilteredRowModel(),
+                filterFns: {
+                  fuzzy: fuzzyFilter,
+                },
+              }}
+              search={{
+                show: true,
+                searchParamKey: "searchTableEnrolledStudents",
+              }}
+              footer={{
+                showSelectedRows: false,
+                showPagination: true,
+              }}
+            />
+          </QueryStatusHandler>
+        </section>
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+**Benefits**:
+- ✅ Consistent loading and error handling across the app
+- ✅ User-friendly error messages
+- ✅ Automatic loading spinners
+- ✅ Cleaner component code (no manual `isLoading` checks)
+- ✅ Better UX with proper feedback for all states
+
+**Rules**:
+- 🔴 NEVER manually check `query.isLoading` or `query.isError` - use `QueryStatusHandler`
+- 🔴 NEVER render content without wrapping in status handlers
+- 🟢 ALWAYS use `QueryStatusHandler` for components consuming query data
+- 🟢 ALWAYS use `MutationStatusHandler` for forms with mutations
+- 🟢 Pass ALL dependent queries to `QueryStatusHandler` queries array
+
 ## Important Notes
 
 - **Package Installation**: Always use `--legacy-peer-deps` flag due to oRPC version conflicts
@@ -844,4 +1201,5 @@ queryClient.invalidateQueries({
 - **WebSocket Singleton**: The WebSocket server is a singleton - use `getWebSocketServer()` to access it
 - **Session Management**: Sessions are cookie-based, not JWT - use `lib/auth/session.ts` helpers
 - **Query Hooks**: MUST follow TanStack Query patterns with `orpc.*.*.queryOptions()` - NO manual query keys, NO barrel exports
+- **Status Handlers**: ALL components using TanStack Query hooks MUST use `QueryStatusHandler` (for queries) or `MutationStatusHandler` (for mutations) from `@/components/request-status/` - NEVER manually check `isLoading`, `isError`, or `isPending`
 - **SSR Support**: Use `getQueryClient()` and `HydrateClient` from `@/lib/query/hydration` for server-side rendering with automatic serialization
