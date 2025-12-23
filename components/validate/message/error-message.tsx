@@ -1,5 +1,5 @@
 import { ExclamationCircleIcon } from "@heroicons/react/24/outline";
-import { cn } from "@/lib/utils/class-utils";
+import { cn } from "@/lib/utils";
 
 interface IProps {
 	isShowIcon?: boolean;

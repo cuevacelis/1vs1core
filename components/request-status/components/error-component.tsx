@@ -10,7 +10,7 @@ import {
 	InputGroupText,
 	InputGroupTextarea,
 } from "@/components/ui/input-group";
-import { cn } from "@/lib/utils/class-utils";
+import { cn } from "@/lib/utils";
 
 interface IProps {
 	message?: string[] | string | null;

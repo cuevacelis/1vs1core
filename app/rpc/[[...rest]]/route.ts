@@ -1,7 +1,6 @@
 import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { BatchHandlerPlugin, CORSPlugin } from "@orpc/server/plugins";
-import { cookies, headers } from "next/headers";
 import { routerORPC } from "@/lib/orpc/routers";
 
 const rpcHandler = new RPCHandler(routerORPC, {
@@ -22,10 +21,6 @@ const rpcHandler = new RPCHandler(routerORPC, {
 async function handleRequest(request: Request) {
   const { response } = await rpcHandler.handle(request, {
     prefix: "/rpc",
-    // context: {
-    //   headers: headers,
-    //   cookies: cookies,
-    // },
   });
 
   return response ?? new Response("Not found", { status: 404 });

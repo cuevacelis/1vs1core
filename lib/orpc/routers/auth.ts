@@ -2,7 +2,7 @@ import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import { createSession, destroySession } from "../../auth/session";
 import { query } from "../../db/config";
-import type { Role, User } from "../../db/types";
+import type { RoleJsonb, User, UserJsonb } from "../../db/types";
 import { authedMiddleware } from "../middlewares/auth";
 import { basedMiddleware } from "../middlewares/base";
 
@@ -73,8 +73,8 @@ export const authRouter = {
       const { accessCode } = input;
       const result = await query<{
         out_user_id: number;
-        out_user_data: User;
-        out_role: Role;
+        out_user_data: UserJsonb; // JSONB type - dates are strings
+        out_role: RoleJsonb; // JSONB type - dates are strings
       }>("SELECT * FROM fn_auth_verify_access_code($1)", [accessCode]);
 
       if (result.length === 0) {
@@ -93,13 +93,19 @@ export const authRouter = {
 
       return {
         user: {
-          ...user_data,
-          creation_date: user_data.creation_date.toISOString(),
-          modification_date: user_data.modification_date?.toISOString(),
+          id: user_data.id,
+          name: user_data.name,
+          short_name: user_data.short_name || undefined,
+          state: user_data.state,
+          url_image: user_data.url_image || undefined,
+          creation_date: user_data.creation_date, // Already ISO string from JSONB
+          modification_date: user_data.modification_date || undefined,
+          persona_id: user_data.persona_id || undefined,
+          access_code_hash: user_data.access_code_hash,
           role: {
             id: role.id,
             name: role.name,
-            description: role.description,
+            description: role.description || undefined,
           },
         },
         accessCode,

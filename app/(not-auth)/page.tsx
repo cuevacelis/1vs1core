@@ -1,158 +1,131 @@
 "use client";
 
-import { Trophy, Users, Zap } from "lucide-react";
+import { Sparkles, Trophy } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MutationStatusHandler } from "@/components/request-status/mutation-status-handler";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { useLoginMutation } from "./_components/services/use-login.mutation";
 
 export default function Home() {
   const [accessCode, setAccessCode] = useState("");
-  const [error, setError] = useState("");
   const router = useRouter();
   const loginMutation = useLoginMutation();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
 
     try {
-      await loginMutation.mutateAsync({ accessCode: accessCode });
+      await loginMutation.mutateAsync({ accessCode: accessCode.trim() });
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
       console.error("Login error:", err);
-      setError("Código de acceso inválido. Por favor, intenta de nuevo.");
     }
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-background via-muted/30 to-background">
-      <div className="py-16">
+    <div className="min-h-screen bg-linear-to-br from-background via-muted/20 to-background">
+      <div className="py-12 sm:py-16 lg:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Hero Section */}
-          <div className="text-center mb-16 space-y-4">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
-              <Trophy className="w-10 h-10 text-primary" />
+          <div className="text-center mb-12 sm:mb-16 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+            <div className="inline-flex items-center justify-center w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-linear-to-br from-primary/20 to-primary/10 mb-4 shadow-lg ring-4 ring-primary/10">
+              <Trophy className="w-10 h-10 sm:w-12 sm:h-12 text-primary" />
             </div>
-            <h1 className="text-5xl font-bold tracking-tight mb-4">
-              Bienvenido a 1v1 Core
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Tu plataforma definitiva para torneos competitivos 1v1 con
-              selección de campeones en tiempo real
-            </p>
+
+            <div className="space-y-4">
+              <Badge
+                variant="secondary"
+                className="px-4 py-1.5 text-sm font-medium"
+              >
+                <Sparkles className="w-3.5 h-3.5 mr-1.5 inline" />
+                Plataforma de Torneos 1v1
+              </Badge>
+
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                Bienvenido a 1v1 Core
+              </h1>
+
+              <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                Tu plataforma definitiva para torneos competitivos 1v1 con
+                selección de campeones en tiempo real
+              </p>
+            </div>
           </div>
 
           {/* Login Card */}
-          <Card className="max-w-md mx-auto shadow-lg">
-            <CardHeader className="space-y-1">
-              <CardTitle className="text-2xl text-center">
-                Acceso al Torneo
-              </CardTitle>
-              <CardDescription className="text-center">
-                Ingresa tu código de acceso para unirte a la competencia
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="accessCode">Código de Acceso</Label>
-                  <Input
-                    id="accessCode"
-                    type="text"
-                    placeholder="Ingresa tu código de acceso"
-                    value={accessCode}
-                    onChange={(e) => setAccessCode(e.target.value)}
-                    required
-                    className="h-11"
-                  />
-                </div>
+          <Card className="max-w-md mx-auto shadow-xl border-2 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-150">
+            <CardContent className="pt-6">
+              <MutationStatusHandler
+                mutations={[loginMutation]}
+                hideLoadingModal
+                hideErrorModal
+                hideSuccessModal
+              >
+                <form onSubmit={handleLogin} className="space-y-5">
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="accessCode"
+                      className="text-base font-medium"
+                    >
+                      Código de Acceso
+                    </Label>
+                    <Input
+                      id="accessCode"
+                      type="text"
+                      placeholder="Ej: ABC123XYZ456"
+                      value={accessCode}
+                      onChange={(e) =>
+                        setAccessCode(e.target.value.toUpperCase())
+                      }
+                      required
+                      disabled={loginMutation.isPending}
+                      className="h-12 text-base font-mono tracking-wider"
+                      autoComplete="off"
+                      autoFocus
+                    />
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      El código debe ser proporcionado por un administrador
+                    </p>
+                  </div>
 
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-
-                <Button
-                  type="submit"
-                  disabled={loginMutation.isPending}
-                  className="w-full h-11"
-                  size="lg"
-                >
-                  {loginMutation.isPending
-                    ? "Ingresando..."
-                    : "Ingresar al Torneo"}
-                </Button>
-              </form>
+                  <Button
+                    type="submit"
+                    disabled={loginMutation.isPending || !accessCode.trim()}
+                    className="w-full h-12 text-base font-semibold"
+                    size="lg"
+                  >
+                    {loginMutation.isPending ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                        Verificando acceso...
+                      </>
+                    ) : (
+                      "Ingresar al Torneo"
+                    )}
+                  </Button>
+                </form>
+              </MutationStatusHandler>
             </CardContent>
-            <CardFooter>
-              <p className="text-center text-sm text-muted-foreground w-full">
-                ¿No tienes un código de acceso? Contacta a un administrador del
-                torneo.
+
+            <Separator />
+
+            <CardFooter className="flex flex-col space-y-2 pt-6">
+              <p className="text-center text-sm text-muted-foreground">
+                ¿No tienes un código de acceso?
+              </p>
+              <p className="text-center text-xs text-muted-foreground">
+                Contacta a un administrador del torneo para obtener tu código
+                único
               </p>
             </CardFooter>
           </Card>
-
-          {/* Features Section */}
-          <div className="mt-24 grid grid-cols-1 md:grid-cols-3 gap-8">
-            <Card className="border-2">
-              <CardHeader>
-                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
-                  <Trophy className="w-6 h-6 text-primary" />
-                </div>
-                <CardTitle>Partidas Competitivas</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Experimenta intensas batallas 1v1 con emparejamiento justo y
-                  actualizaciones en tiempo real
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-2">
-              <CardHeader>
-                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
-                  <Zap className="w-6 h-6 text-primary" />
-                </div>
-                <CardTitle>Selección en Tiempo Real</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Elige tu campeón en tiempo real con actualizaciones en vivo
-                  para transmisión
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-2">
-              <CardHeader>
-                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
-                  <Users className="w-6 h-6 text-primary" />
-                </div>
-                <CardTitle>Gestión de Torneos</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Organización optimizada de torneos con controles de
-                  administración y seguimiento de jugadores
-                </p>
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </div>
     </div>

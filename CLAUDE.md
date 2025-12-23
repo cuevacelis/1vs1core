@@ -957,7 +957,12 @@ Use `MutationStatusHandler` to handle mutation states (create, update, delete op
 - ✅ Error states with error messages
 - ✅ Success states (optional success message)
 
-**Pattern**:
+**IMPORTANT**: `MutationStatusHandler` supports configuration options:
+- `hideLoadingModal` - Hides the loading state UI (useful when you show custom loading UI)
+- `hideSuccessModal` - Hides the success state UI (useful when you show custom success messages)
+- `mutations` - Array of mutations to monitor (use `mutations={[mutation]}` NOT `mutation={mutation}`)
+
+**Basic Pattern - Simple Form**:
 
 ```typescript
 "use client";
@@ -974,7 +979,7 @@ export function CreateTournamentForm() {
 
   return (
     <form onSubmit={handleSubmit}>
-      <MutationStatusHandler mutation={createMutation} />
+      <MutationStatusHandler mutations={[createMutation]} />
 
       {/* Form fields */}
       <input name="name" />
@@ -982,6 +987,119 @@ export function CreateTournamentForm() {
         Crear Torneo
       </button>
     </form>
+  );
+}
+```
+
+**Advanced Pattern - Custom UI with State Checks**:
+
+When you want to show custom loading/success/error messages instead of the default UI from `MutationStatusHandler`, use `hideLoadingModal` and `hideSuccessModal`:
+
+```typescript
+"use client";
+
+import { useCallback } from "react";
+import { useEffectOnce } from "react-use";
+import { MutationStatusHandler } from "@/components/request-status/mutation-status-handler";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ErrorMessage } from "@/components/validate/message/error-message";
+import { LoadingMessage } from "@/components/validate/message/loading-message";
+import { SuccessMessage } from "@/components/validate/message/success-message";
+import { useSaveDataMutation } from "./_components/services/use-save-data.mutation";
+
+interface SaveModalProps {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}
+
+export function SaveModal({ open, setOpen }: SaveModalProps) {
+  const saveMutation = useSaveDataMutation();
+
+  const handleSave = useCallback(() => {
+    saveMutation.mutate({ data: "example" });
+  }, [saveMutation]);
+
+  // Auto-start the mutation when modal opens
+  useEffectOnce(() => {
+    handleSave();
+  });
+
+  const handleChangeOpenModal = (open: boolean) => {
+    // Prevent closing while mutation is pending
+    if (!open && saveMutation.isPending) {
+      setOpen(true);
+      return;
+    }
+    setOpen(open);
+  };
+
+  const handleRetry = () => {
+    saveMutation.reset();
+    handleSave();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleChangeOpenModal}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {saveMutation.isPending ? "Guardando datos" : "Guardado de datos"}
+          </DialogTitle>
+        </DialogHeader>
+
+        <MutationStatusHandler
+          mutations={[saveMutation]}
+          hideLoadingModal
+          hideSuccessModal
+        >
+          <section className="text-sm overflow-y-auto max-h-96">
+            {saveMutation.isPending && (
+              <LoadingMessage
+                modeView="card"
+                message="Espere un momento, se están guardando los datos..."
+              />
+            )}
+            {saveMutation.isSuccess && (
+              <SuccessMessage
+                modeView="card"
+                message="Los datos se guardaron exitosamente"
+              />
+            )}
+            {saveMutation.isError && (
+              <ErrorMessage
+                modeView="card"
+                message={[
+                  "Ocurrió un problema con el guardado",
+                  "Por favor, verifique la información e intente nuevamente.",
+                ]}
+              />
+            )}
+          </section>
+        </MutationStatusHandler>
+
+        <DialogFooter>
+          {saveMutation.isIdle && (
+            <Button onClick={handleSave}>
+              Iniciar proceso de guardado
+            </Button>
+          )}
+          {saveMutation.isSuccess && (
+            <Button onClick={() => handleChangeOpenModal(false)}>
+              Cerrar
+            </Button>
+          )}
+          {saveMutation.isError && (
+            <>
+              <Button variant="outline" onClick={() => handleChangeOpenModal(false)}>
+                Cerrar
+              </Button>
+              <Button onClick={handleRetry}>Reintentar</Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 ```
@@ -1005,7 +1123,7 @@ export function EditEntityForm({ id }: { id: number }) {
   return (
     <QueryStatusHandler queries={[entityQuery]}>
       <form onSubmit={handleSubmit}>
-        <MutationStatusHandler mutation={updateMutation} />
+        <MutationStatusHandler mutations={[updateMutation]} />
 
         {/* Form pre-filled with query data */}
         <input name="name" defaultValue={entityQuery.data?.name} />
@@ -1014,6 +1132,41 @@ export function EditEntityForm({ id }: { id: number }) {
         </button>
       </form>
     </QueryStatusHandler>
+  );
+}
+```
+
+**Multiple Mutations Pattern**:
+
+```typescript
+import { MutationStatusHandler } from "@/components/request-status/mutation-status-handler";
+import { useCreateUserMutation } from "./_components/services/use-create-user.mutation";
+import { useSendEmailMutation } from "./_components/services/use-send-email.mutation";
+
+export function CreateUserForm() {
+  const createUserMutation = useCreateUserMutation();
+  const sendEmailMutation = useSendEmailMutation();
+
+  const handleSubmit = async (data: FormData) => {
+    const user = await createUserMutation.mutateAsync(data);
+    await sendEmailMutation.mutateAsync({ userId: user.id });
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {/* Monitor both mutations */}
+      <MutationStatusHandler
+        mutations={[createUserMutation, sendEmailMutation]}
+      />
+
+      <input name="name" />
+      <button
+        type="submit"
+        disabled={createUserMutation.isPending || sendEmailMutation.isPending}
+      >
+        Crear Usuario
+      </button>
+    </form>
   );
 }
 ```
@@ -1177,16 +1330,19 @@ export function EnrolledStudentsModal({
 **Benefits**:
 - ✅ Consistent loading and error handling across the app
 - ✅ User-friendly error messages
-- ✅ Automatic loading spinners
+- ✅ Automatic loading spinners and modals
 - ✅ Cleaner component code (no manual `isLoading` checks)
 - ✅ Better UX with proper feedback for all states
 
 **Rules**:
 - 🔴 NEVER manually check `query.isLoading` or `query.isError` - use `QueryStatusHandler`
 - 🔴 NEVER render content without wrapping in status handlers
+- 🔴 NEVER use `mutation={mutation}` - ALWAYS use `mutations={[mutation]}`
 - 🟢 ALWAYS use `QueryStatusHandler` for components consuming query data
 - 🟢 ALWAYS use `MutationStatusHandler` for forms with mutations
+- 🟢 ALWAYS wrap form content as children of `MutationStatusHandler`
 - 🟢 Pass ALL dependent queries to `QueryStatusHandler` queries array
+- 🟢 Use `hideLoadingModal` and `hideSuccessModal` when implementing custom UI states
 
 ## Important Notes
 

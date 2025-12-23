@@ -16,7 +16,7 @@ import {
 	ItemMedia,
 	ItemTitle,
 } from "@/components/ui/item";
-import { cn } from "@/lib/utils/class-utils";
+import { cn } from "@/lib/utils";
 
 interface IProps {
 	message?: string[] | string | null;

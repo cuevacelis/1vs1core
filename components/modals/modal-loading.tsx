@@ -1,5 +1,3 @@
-import Image from "next/image";
-import logo from "@/assets/img/logo/md.png";
 import {
   Dialog,
   DialogContent,
@@ -32,20 +30,6 @@ export function ModalLoading({
         </DialogHeader>
 
         <section className="flex flex-col items-center justify-center">
-          <Image
-            width={128}
-            height={128}
-            src={logo}
-            alt="Logo-loading"
-            className="object-contain"
-            layout="constrained"
-          />
-
-          {/* Barra de progreso */}
-          <div className="relative h-1 w-full overflow-hidden bg-secondary mb-4">
-            <div className="absolute h-full w-full bg-primary animate-progress-bar" />
-          </div>
-
           {/* Mensaje con puntos animados */}
           <div className="flex items-center justify-center">
             <span className="text-lg font-medium">{message}</span>

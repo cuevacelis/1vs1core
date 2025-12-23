@@ -1,4 +1,12 @@
 // Database types
+//
+// IMPORTANT: PostgreSQL returns dates differently depending on query type:
+// - Direct SELECT queries: Date objects (pg library parses them)
+// - JSONB (to_jsonb, jsonb_build_object): ISO date strings
+//
+// We provide two versions of types with date fields:
+// - Regular types (e.g., User): Use Date for direct SELECT queries
+// - JSONB types (e.g., UserJsonb): Use string for JSONB-serialized data from functions
 
 export type EntityState = "active" | "inactive";
 
@@ -188,3 +196,32 @@ export interface MatchChampionWithDetails extends MatchChampion {
   champion: Champion;
   player: User;
 }
+
+// ============================================================================
+// JSONB Utility Type - For data returned from to_jsonb() or jsonb_build_object()
+// ============================================================================
+// PostgreSQL's to_jsonb() converts Date fields to ISO strings.
+// This utility type converts all Date fields in a type to strings.
+
+type ConvertDatesToStrings<T> = {
+  [K in keyof T]: T[K] extends Date
+    ? string
+    : T[K] extends Date | undefined
+      ? string | undefined
+      : T[K];
+};
+
+// JSONB versions of types - automatically derived from base types
+export type UserJsonb = ConvertDatesToStrings<User>;
+export type RoleJsonb = ConvertDatesToStrings<Role>;
+export type PersonJsonb = ConvertDatesToStrings<Person>;
+export type TournamentJsonb = ConvertDatesToStrings<Tournament>;
+export type MatchJsonb = ConvertDatesToStrings<Match>;
+export type ChampionJsonb = ConvertDatesToStrings<Champion>;
+export type GameJsonb = ConvertDatesToStrings<Game>;
+export type ModuleJsonb = ConvertDatesToStrings<Module>;
+export type TournamentParticipationJsonb =
+  ConvertDatesToStrings<TournamentParticipation>;
+export type TournamentChampionBanJsonb =
+  ConvertDatesToStrings<TournamentChampionBan>;
+export type MatchChampionJsonb = ConvertDatesToStrings<MatchChampion>;

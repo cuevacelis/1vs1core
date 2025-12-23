@@ -39,9 +39,11 @@ export function MutationStatusHandler<
   onErrorInModal,
 }: IMutationStatusHandlerProps<TError, TContext>) {
   // Estado de las mutaciones
-  const isPending = mutations.some((mutation) => mutation.status === "pending");
-  const hasError = mutations.some((mutation) => mutation.status === "error");
-  const hasSuccess = mutations.some(
+  const isPending = mutations?.some(
+    (mutation) => mutation?.status === "pending"
+  );
+  const hasError = mutations?.some((mutation) => mutation.status === "error");
+  const hasSuccess = mutations?.some(
     (mutation) => mutation.status === "success"
   );
 
