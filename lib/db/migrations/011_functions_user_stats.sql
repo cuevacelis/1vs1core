@@ -77,6 +77,7 @@ BEGIN
         'state', u.state,
         'url_image', u.url_image,
         'creation_date', u.creation_date,
+        'modification_date', u.modification_date,
         'role', jsonb_build_object(
             'id', r.id,
             'name', r.name,
