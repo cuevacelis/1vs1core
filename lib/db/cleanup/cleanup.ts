@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { getPool, resetPool } from "../config";
 
 // Load environment variables from .env file
-const envPath = join(__dirname, "../../../.env");
+const envPath = join(process.cwd(), ".env");
 if (existsSync(envPath)) {
   const envContent = readFileSync(envPath, "utf-8");
   envContent.split("\n").forEach((line) => {
@@ -19,13 +19,6 @@ if (existsSync(envPath)) {
     }
   });
 }
-
-console.log("Database connection config:");
-console.log("  HOST:", process.env.DATABASE_HOST);
-console.log("  PORT:", process.env.DATABASE_PORT);
-console.log("  NAME:", process.env.DATABASE_NAME);
-console.log("  USER:", process.env.DATABASE_USER);
-console.log("  SSL:", process.env.DATABASE_SSL);
 
 async function cleanDatabase() {
   const pool = getPool();
