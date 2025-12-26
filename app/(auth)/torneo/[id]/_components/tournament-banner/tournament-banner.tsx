@@ -1,13 +1,13 @@
 "use client";
 
-import Image from "next/image";
 import { Trophy } from "lucide-react";
+import Image from "next/image";
 import { QueryStatusHandler } from "@/components/request-status/query-status-handler";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { useTournamentDetailQuery } from "../services/use-tournament-detail.query";
 import { TournamentBannerEmpty } from "./empity-state/tournament-banner-empty";
 import { TournamentBannerLoading } from "./loading/tournament-banner-loading";
-import { useTournamentDetailQuery } from "../services/use-tournament-detail.query";
 
 interface TournamentBannerProps {
   tournamentId: number;
@@ -15,7 +15,10 @@ interface TournamentBannerProps {
 
 const STATE_LABELS: Record<
   string,
-  { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
+  {
+    label: string;
+    variant: "default" | "secondary" | "destructive" | "outline";
+  }
 > = {
   draft: { label: "Borrador", variant: "secondary" },
   active: { label: "Activo", variant: "default" },
@@ -28,11 +31,10 @@ export function TournamentBanner({ tournamentId }: TournamentBannerProps) {
   const tournamentQuery = useTournamentDetailQuery(tournamentId);
   const tournament = tournamentQuery.data;
 
-  const stateConfig =
-    STATE_LABELS[tournament?.state ?? "draft"] || {
-      label: tournament?.state ?? "draft",
-      variant: "outline" as const,
-    };
+  const stateConfig = STATE_LABELS[tournament?.state ?? "draft"] || {
+    label: tournament?.state ?? "draft",
+    variant: "outline" as const,
+  };
 
   return (
     <QueryStatusHandler

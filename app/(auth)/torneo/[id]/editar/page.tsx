@@ -40,6 +40,7 @@ export default function EditTournamentPage({
     name: tournament?.name ?? "",
     description: tournament?.description ?? "",
     game_id: tournament?.game_id.toString() ?? "",
+    state: tournament?.state ?? "draft",
     start_date: tournament?.start_date
       ? new Date(tournament.start_date).toISOString().slice(0, 16)
       : "",
@@ -64,13 +65,14 @@ export default function EditTournamentPage({
         {
           id: tournamentId,
           name: value.name,
-          description: value.description || undefined,
+          description: value.description || null,
           game_id: Number.parseInt(value.game_id, 10),
-          start_date: value.start_date || undefined,
-          end_date: value.end_date || undefined,
+          state: value.state,
+          start_date: value.start_date || null,
+          end_date: value.end_date || null,
           max_participants: value.max_participants
             ? Number.parseInt(value.max_participants, 10)
-            : undefined,
+            : null,
         },
         {
           onSuccess: () => {
@@ -170,6 +172,39 @@ export default function EditTournamentPage({
                           })) ?? []
                         }
                         placeholder="Selecciona un juego"
+                      />
+                    )}
+                  </form.AppField>
+
+                  {/* Tournament State */}
+                  <form.AppField name="state">
+                    {(field) => (
+                      <field.ComboboxSingleSelectionField
+                        label="Estado del Torneo"
+                        schema={tournamentEditSchema}
+                        options={[
+                          {
+                            value: "draft",
+                            label: "Borrador - No visible para inscripciones",
+                          },
+                          {
+                            value: "active",
+                            label: "Activo - Aceptando inscripciones",
+                          },
+                          {
+                            value: "in_progress",
+                            label: "En progreso - Torneo en curso",
+                          },
+                          {
+                            value: "completed",
+                            label: "Finalizado - Torneo terminado",
+                          },
+                          {
+                            value: "cancelled",
+                            label: "Cancelado",
+                          },
+                        ]}
+                        placeholder="Selecciona el estado"
                       />
                     )}
                   </form.AppField>

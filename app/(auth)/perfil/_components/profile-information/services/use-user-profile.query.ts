@@ -29,6 +29,6 @@ export function useUserProfileQuery(config?: UseUserProfileQueryConfig) {
       staleTime: config?.staleTime ?? 5 * 60 * 1000, // 5 minutes - profile rarely changes
       gcTime: config?.gcTime,
       refetchOnWindowFocus: config?.refetchOnWindowFocus ?? true,
-    })
+    }),
   );
 }

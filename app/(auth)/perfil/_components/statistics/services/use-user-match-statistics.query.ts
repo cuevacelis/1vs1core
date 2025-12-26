@@ -23,7 +23,7 @@ interface UseUserMatchStatisticsQueryConfig {
  * ```
  */
 export function useUserMatchStatisticsQuery(
-  config?: UseUserMatchStatisticsQueryConfig
+  config?: UseUserMatchStatisticsQueryConfig,
 ) {
   return useQuery(
     orpc.users.myStats.queryOptions({
@@ -31,6 +31,6 @@ export function useUserMatchStatisticsQuery(
       staleTime: config?.staleTime ?? 30 * 1000, // 30 seconds - moderate updates
       gcTime: config?.gcTime,
       refetchOnWindowFocus: config?.refetchOnWindowFocus ?? true,
-    })
+    }),
   );
 }

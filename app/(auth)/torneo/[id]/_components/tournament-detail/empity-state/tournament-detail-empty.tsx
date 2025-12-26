@@ -1,7 +1,7 @@
-import { Trophy, AlertCircle } from "lucide-react";
+import { AlertCircle, Trophy } from "lucide-react";
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 export function TournamentDetailEmpty() {
   return (

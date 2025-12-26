@@ -11,7 +11,7 @@ import { DateTime } from "luxon";
  */
 export function formatCurrentDateTime(
   format = "dd/MM/yyyy HH:mm:ss z",
-  timezone = "America/Lima"
+  timezone = "America/Lima",
 ): string {
   return DateTime.now().setZone(timezone).toFormat(format);
 }
@@ -64,16 +64,16 @@ export function formatDateForInput({
   const timezone = userTimezone ?? DateTime.local().zoneName;
 
   dateTime = DateTime.fromISO(utcDate, { zone: "America/Lima" }).setZone(
-    timezone
+    timezone,
   );
   if (!dateTime.isValid) {
     dateTime = DateTime.fromSQL(utcDate, { zone: "America/Lima" }).setZone(
-      timezone
+      timezone,
     );
   }
   if (!dateTime.isValid) {
     dateTime = DateTime.fromRFC2822(utcDate, { zone: "America/Lima" }).setZone(
-      timezone
+      timezone,
     );
   }
 
@@ -106,7 +106,7 @@ export function isCurrentDay(date?: string) {
  */
 export function calculateDaysDifference(
   isoDate: string,
-  timezone: string = DateTime.local().zoneName
+  timezone: string = DateTime.local().zoneName,
 ): number | null {
   // Return null if the date string is empty or invalid
   if (!isoDate || isoDate.trim() === "") {
@@ -134,7 +134,7 @@ export function calculateDaysDifference(
  */
 export function formatLongDateTime(
   utcDate: string,
-  userTimezone?: string
+  userTimezone?: string,
 ): { fecha: string; hora: string } {
   const timezone = userTimezone ?? DateTime.local().zoneName;
   const limaDateTime = DateTime.fromSQL(utcDate, { zone: "America/Lima" });

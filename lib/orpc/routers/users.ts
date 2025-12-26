@@ -636,4 +636,39 @@ export const usersRouter = {
 
       return result;
     }),
+
+  // Admin: Delete user
+  delete: authedMiddleware
+    .route({
+      method: "DELETE",
+      path: "/users/{id}",
+      summary: "Eliminar usuario",
+      description: "Eliminar un usuario (solo admin)",
+      tags: ["users", "admin"],
+    })
+    .input(z.object({ id: z.number() }))
+    .output(
+      z.object({
+        success: z.boolean(),
+        message: z.string(),
+      }),
+    )
+    .handler(async ({ input }) => {
+      // Delete user
+      const result = await query<{ id: number }>(
+        `DELETE FROM users WHERE id = $1 RETURNING id`,
+        [input.id],
+      );
+
+      if (result.length === 0) {
+        throw new ORPCError("NOT_FOUND", {
+          message: "Usuario no encontrado",
+        });
+      }
+
+      return {
+        success: true,
+        message: "Usuario eliminado exitosamente",
+      };
+    }),
 };

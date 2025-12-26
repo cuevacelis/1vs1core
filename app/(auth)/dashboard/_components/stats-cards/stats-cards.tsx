@@ -2,12 +2,7 @@
 
 import { TrendingUp, Trophy, Zap } from "lucide-react";
 import { QueryStatusHandler } from "@/components/request-status/query-status-handler";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatsCardsLoading } from "./loading/stats-cards-loading";
 import { useUserStatsQuery } from "./services/use-user-stats.query";
 

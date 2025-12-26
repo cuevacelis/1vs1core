@@ -40,7 +40,7 @@ export function DeleteTournamentDialog({
           router.push("/torneo");
           router.refresh();
         },
-      }
+      },
     );
   };
 

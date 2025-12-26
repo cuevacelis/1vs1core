@@ -2,12 +2,12 @@
 
 import { Users } from "lucide-react";
 import { QueryStatusHandler } from "@/components/request-status/query-status-handler";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useTournamentParticipantsQuery } from "../services/use-tournament-participants.query";
 import { ParticipantsListEmpty } from "./empity-state/participants-list-empty";
 import { ParticipantsListLoading } from "./loading/participants-list-loading";
-import { useTournamentParticipantsQuery } from "../services/use-tournament-participants.query";
 
 interface ParticipantsListProps {
   tournamentId: number;

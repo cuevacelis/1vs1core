@@ -40,7 +40,7 @@ export function QueryStatusHandler({
   const successfulQueries = queries.filter((query) => !query.isError);
   const hasSuccessfulQueries = successfulQueries.length > 0;
   const allSuccessfulQueriesCompleted = successfulQueries.every(
-    (query) => query.isSuccess
+    (query) => query.isSuccess,
   );
 
   // Check if any query has data

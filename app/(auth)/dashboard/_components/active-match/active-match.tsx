@@ -52,9 +52,7 @@ export function ActiveMatch() {
               <div className="rounded-full bg-muted p-4 mb-4">
                 <Swords className="h-8 w-8 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">
-                Sin partida activa
-              </h3>
+              <h3 className="text-lg font-semibold mb-2">Sin partida activa</h3>
               <p className="text-sm text-muted-foreground max-w-sm">
                 Serás notificado cuando una partida esté lista. Mientras tanto,
                 puedes explorar torneos disponibles.

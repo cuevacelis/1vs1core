@@ -1,10 +1,10 @@
 "use client";
 
-import { Swords, Calendar, Trophy } from "lucide-react";
+import { Calendar, Swords, Trophy } from "lucide-react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface Match {
   id: number;
@@ -22,7 +22,13 @@ interface MatchesListProps {
   tournamentId: number;
 }
 
-const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+const STATUS_LABELS: Record<
+  string,
+  {
+    label: string;
+    variant: "default" | "secondary" | "destructive" | "outline";
+  }
+> = {
   pending: { label: "Pendiente", variant: "secondary" },
   active: { label: "Activo", variant: "default" },
   player1_connected: { label: "Jugador 1 conectado", variant: "outline" },
@@ -107,15 +113,14 @@ export function MatchesList({ matches, tournamentId }: MatchesListProps) {
                           <Calendar className="h-3 w-3" />
                           <span>
                             {match.scheduled_time
-                              ? new Date(match.scheduled_time).toLocaleDateString(
-                                  "es-ES",
-                                  {
-                                    day: "numeric",
-                                    month: "short",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  },
-                                )
+                              ? new Date(
+                                  match.scheduled_time,
+                                ).toLocaleDateString("es-ES", {
+                                  day: "numeric",
+                                  month: "short",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
                               : "Sin programar"}
                           </span>
                         </div>

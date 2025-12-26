@@ -30,6 +30,11 @@ SELECT r.id, '/perfil', 'Perfil', 'User', 4, true, 'Profile access'
 FROM role r WHERE r.name = 'admin'
 ON CONFLICT (role_id, url_pattern) DO NOTHING;
 
+INSERT INTO module (role_id, url_pattern, title, icon, display_order, is_visible_in_nav, description)
+SELECT r.id, '/usuario/*', 'Usuarios', 'Users', 5, true, 'Full access to user management and all sub-routes'
+FROM role r WHERE r.name = 'admin'
+ON CONFLICT (role_id, url_pattern) DO NOTHING;
+
 -- Insert default module access for player role with navigation metadata
 INSERT INTO module (role_id, url_pattern, title, icon, display_order, is_visible_in_nav, description)
 SELECT r.id, '/dashboard', 'Dashboard', 'LayoutDashboard', 1, true, 'Player dashboard access'

@@ -13,6 +13,7 @@ export const tournamentEditSchema = z
       .refine((val) => !Number.isNaN(Number.parseInt(val, 10)), {
         message: "Debe seleccionar un juego válido",
       }),
+    state: z.enum(["draft", "active", "in_progress", "completed", "cancelled"]),
     start_date: z.string().optional(),
     end_date: z.string().optional(),
     max_participants: z
@@ -25,7 +26,7 @@ export const tournamentEditSchema = z
             Number.parseInt(val, 10) >= 2),
         {
           message: "El número de participantes debe ser al menos 2",
-        }
+        },
       ),
   })
   .refine(
@@ -40,7 +41,7 @@ export const tournamentEditSchema = z
       message:
         "La fecha de finalización debe ser posterior o igual a la fecha de inicio",
       path: ["end_date"],
-    }
+    },
   );
 
 export type TournamentEditFormData = z.infer<typeof tournamentEditSchema>;

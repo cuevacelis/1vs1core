@@ -1,7 +1,6 @@
 "use client";
 
-import { Calendar, Pencil, Trophy, Users } from "lucide-react";
-import Link from "next/link";
+import { Calendar, Trophy, Users } from "lucide-react";
 import { QueryStatusHandler } from "@/components/request-status/query-status-handler";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,14 +37,10 @@ export function TournamentInfo({
 
   const tournament = tournamentQuery.data;
   const participants = participantsQuery.data || [];
-  const user = userMeQuery.data;
 
   const isUserParticipating = participants.some(
     (p) => p.user_id === currentUserId && p.state !== "withdrawn",
   );
-
-  // Check if user is admin
-  const isAdmin = user?.role.name === "admin";
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Por definir";
@@ -77,14 +72,6 @@ export function TournamentInfo({
               <Trophy className="h-5 w-5" />
               Información del Torneo
             </div>
-            {isAdmin && (
-              <Link href={`/torneo/${tournamentId}/editar`}>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Pencil className="h-4 w-4" />
-                  Editar
-                </Button>
-              </Link>
-            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">

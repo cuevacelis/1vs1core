@@ -17,9 +17,7 @@ export function MyTournamentsEmpty() {
           <Trophy className="h-5 w-5" />
           Mis Torneos
         </CardTitle>
-        <CardDescription>
-          Torneos en los que estás participando
-        </CardDescription>
+        <CardDescription>Torneos en los que estás participando</CardDescription>
       </CardHeader>
       <CardContent className="py-12">
         <div className="text-center space-y-4">

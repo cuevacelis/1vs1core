@@ -3,9 +3,9 @@
 import Image from "next/image";
 import { QueryStatusHandler } from "@/components/request-status/query-status-handler";
 import { Card, CardContent } from "@/components/ui/card";
+import { useTournamentDetailQuery } from "../services/use-tournament-detail.query";
 import { TournamentHeaderEmpty } from "./empity-state/tournament-header-empty";
 import { TournamentHeaderLoading } from "./loading/tournament-header-loading";
-import { useTournamentDetailQuery } from "../services/use-tournament-detail.query";
 
 interface TournamentHeaderProps {
   tournamentId: number;
@@ -55,7 +55,9 @@ export function TournamentHeader({ tournamentId }: TournamentHeaderProps) {
 
             {tournament?.description && (
               <div className="prose prose-sm max-w-none dark:prose-invert">
-                <p className="text-muted-foreground">{tournament.description}</p>
+                <p className="text-muted-foreground">
+                  {tournament.description}
+                </p>
               </div>
             )}
           </div>

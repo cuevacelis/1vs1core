@@ -19,7 +19,8 @@ CREATE OR REPLACE FUNCTION fn_tournament_create(
     p_start_date TIMESTAMP DEFAULT NULL,
     p_end_date TIMESTAMP DEFAULT NULL,
     p_max_participants INTEGER DEFAULT NULL,
-    p_url_image TEXT DEFAULT NULL
+    p_url_image TEXT DEFAULT NULL,
+    p_state tournament_state DEFAULT 'draft'
 )
 RETURNS TABLE(
     out_tournament JSONB
@@ -29,8 +30,10 @@ DECLARE
 BEGIN
     /******************************************************************************
       NOMBRE:  fn_tournament_create
-      PROPÓSITO: Función para crear un nuevo torneo en estado borrador
-      INVOCACIÓN: SELECT * FROM fn_tournament_create('Torneo League of Legends', 1, 1, 'Descripción del torneo', NULL, NULL, 16, NULL);
+      PROPÓSITO: Función para crear un nuevo torneo con estado configurable
+      INVOCACIÓN: SELECT * FROM fn_tournament_create('Torneo League of Legends', 1, 1, 'Descripción del torneo', NULL, NULL, 16, NULL, 'draft');
+      PARÁMETROS:
+        - p_state: Estado del torneo (draft, active, in_progress, completed, cancelled) - default: 'draft'
       RETORNA: JSONB con los datos del torneo creado
     ******************************************************************************/
     -- Insert tournament
@@ -40,7 +43,7 @@ BEGIN
     )
     VALUES (
         p_name, p_description, p_game_id, p_start_date, p_end_date,
-        p_max_participants, p_creator_id, p_url_image, 'draft'
+        p_max_participants, p_creator_id, p_url_image, p_state
     )
     RETURNING id INTO v_tournament_id;
 
@@ -248,15 +251,21 @@ BEGIN
       PROPÓSITO: Función para obtener la lista de participantes de un torneo ordenados por fecha de inscripción
       INVOCACIÓN: SELECT * FROM fn_tournament_get_participants(1);
       RETORNA: JSONB con los datos de cada participante (usuario) y su estado de participación
+        - id: ID de la participación
+        - tournament_id: ID del torneo
+        - user_id: ID del usuario
+        - user_name: Nombre del usuario
+        - registration_date: Fecha de registro (ISO string)
+        - state: Estado de la participación (registered, confirmed, withdrawn)
     ******************************************************************************/
     RETURN QUERY
     SELECT jsonb_build_object(
-        'id', u.id,
-        'name', u.name,
-        'short_name', u.short_name,
-        'url_image', u.url_image,
+        'id', tp.id,
+        'tournament_id', tp.tournament_id,
+        'user_id', u.id,
+        'user_name', u.name,
         'registration_date', tp.registration_date,
-        'participation_state', tp.state
+        'state', tp.state
     ) as participant
     FROM tournament_participations tp
     INNER JOIN users u ON tp.user_id = u.id

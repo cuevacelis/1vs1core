@@ -28,6 +28,7 @@ export default function NewTournamentPage() {
     name: "",
     description: "",
     game_id: "",
+    state: "draft",
     start_date: "",
     end_date: "",
     max_participants: "",
@@ -49,6 +50,7 @@ export default function NewTournamentPage() {
           name: value.name,
           description: value.description,
           game_id: Number.parseInt(value.game_id, 10),
+          state: value.state,
           start_date: value.start_date || undefined,
           end_date: value.end_date || undefined,
           max_participants: value.max_participants
@@ -60,7 +62,7 @@ export default function NewTournamentPage() {
             router.push("/torneo");
             router.refresh();
           },
-        }
+        },
       );
     },
   });
@@ -143,6 +145,39 @@ export default function NewTournamentPage() {
                           })) ?? []
                         }
                         placeholder="Selecciona un juego"
+                      />
+                    )}
+                  </form.AppField>
+
+                  {/* Tournament State */}
+                  <form.AppField name="state">
+                    {(field) => (
+                      <field.ComboboxSingleSelectionField
+                        label="Estado del Torneo"
+                        schema={tournamentCreateSchema}
+                        options={[
+                          {
+                            value: "draft",
+                            label: "Borrador - No visible para inscripciones",
+                          },
+                          {
+                            value: "active",
+                            label: "Activo - Aceptando inscripciones",
+                          },
+                          {
+                            value: "in_progress",
+                            label: "En progreso - Torneo en curso",
+                          },
+                          {
+                            value: "completed",
+                            label: "Finalizado - Torneo terminado",
+                          },
+                          {
+                            value: "cancelled",
+                            label: "Cancelado",
+                          },
+                        ]}
+                        placeholder="Selecciona el estado"
                       />
                     )}
                   </form.AppField>

@@ -134,6 +134,7 @@ export const tournamentsRouter = {
         start_date: z.string().optional(),
         end_date: z.string().optional(),
         max_participants: z.number().optional(),
+        state: tournamentStateEnum.optional(),
         url_image: z.string().optional(),
       }),
     )
@@ -142,16 +143,20 @@ export const tournamentsRouter = {
       // Use database function fn_tournament_create
       const result = await query<{
         out_tournament: TournamentOutput;
-      }>(`SELECT * FROM fn_tournament_create($1, $2, $3, $4, $5, $6, $7, $8)`, [
-        input.name,
-        input.game_id,
-        context?.session?.userId,
-        input.description || null,
-        input.start_date || null,
-        input.end_date || null,
-        input.max_participants || null,
-        input.url_image || null,
-      ]);
+      }>(
+        `SELECT * FROM fn_tournament_create($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          input.name,
+          input.game_id,
+          context?.session?.userId,
+          input.description || null,
+          input.start_date || null,
+          input.end_date || null,
+          input.max_participants || null,
+          input.url_image || null,
+          input.state || "draft",
+        ],
+      );
 
       if (result.length === 0) {
         throw new ORPCError("INTERNAL_SERVER_ERROR", {
@@ -175,21 +180,20 @@ export const tournamentsRouter = {
       z.object({
         id: z.number(),
         name: z.string().min(1).max(200).optional(),
-        description: z.string().optional(),
+        description: z.string().nullable().optional(),
         game_id: z.number().optional(),
-        start_date: z.string().optional(),
-        end_date: z.string().optional(),
-        max_participants: z.number().optional(),
-        status: z.boolean().optional(),
-        tournament_state: tournamentStateEnum.optional(),
-        url_image: z.string().optional(),
+        start_date: z.string().nullable().optional(),
+        end_date: z.string().nullable().optional(),
+        max_participants: z.number().nullable().optional(),
+        state: tournamentStateEnum.optional(),
+        url_image: z.string().nullable().optional(),
       }),
     )
     .output(tournamentOutputSchema)
     .handler(async ({ input }) => {
       const { id, ...updates } = input;
       const setClause: string[] = [];
-      const values: (string | number | boolean)[] = [];
+      const values: (string | number | boolean | null)[] = [];
       let paramIndex = 1;
 
       Object.entries(updates).forEach(([key, value]) => {
