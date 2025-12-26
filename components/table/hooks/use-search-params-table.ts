@@ -24,7 +24,7 @@ export function useSearchParamsTable(props: UseSearchParamsTableProps) {
 
   // Get specific param value if searchParamKey is provided
   const paramValue = props.searchParamKey
-    ? searchParams.get(props.searchParamKey) ?? undefined
+    ? (searchParams.get(props.searchParamKey) ?? undefined)
     : undefined;
 
   // Set filters by merging with existing params
@@ -45,7 +45,7 @@ export function useSearchParamsTable(props: UseSearchParamsTableProps) {
       // Navigate with new params
       router.push(`${pathname}?${newParams.toString()}`, { scroll: false });
     },
-    [router, pathname, filters]
+    [router, pathname, filters],
   );
 
   // Reset all filters

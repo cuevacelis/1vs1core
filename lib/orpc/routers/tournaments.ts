@@ -370,4 +370,114 @@ export const tournamentsRouter = {
         message: "Torneo eliminado exitosamente",
       };
     }),
+
+  // Admin: Add participant to tournament
+  adminAddParticipant: authedMiddleware
+    .route({
+      method: "POST",
+      path: "/tournaments/{tournamentId}/participants",
+      summary: "Agregar participante a torneo (Admin)",
+      description:
+        "Permite al administrador agregar un usuario directamente al torneo",
+      tags: ["tournaments", "admin"],
+    })
+    .input(
+      z.object({
+        tournamentId: z.number(),
+        userId: z.number(),
+      }),
+    )
+    .output(
+      z.object({
+        id: z.number(),
+        tournament_id: z.number(),
+        user_id: z.number(),
+        registration_date: z.string(),
+        state: z.enum(["registered", "confirmed", "withdrawn"]),
+      }),
+    )
+    .handler(async ({ input, context }) => {
+      const adminId = context?.session?.userId;
+
+      // Use database function fn_tournament_admin_add_participant
+      const result = await query<{
+        out_success: boolean;
+        out_message: string;
+        out_participation: {
+          id: number;
+          tournament_id: number;
+          user_id: number;
+          registration_date: string;
+          state: "registered" | "confirmed" | "withdrawn";
+        } | null;
+      }>(`SELECT * FROM fn_tournament_admin_add_participant($1, $2, $3)`, [
+        input.tournamentId,
+        input.userId,
+        adminId,
+      ]);
+
+      if (result.length === 0 || !result[0].out_success) {
+        throw new ORPCError("BAD_REQUEST", {
+          message:
+            result[0]?.out_message || "Error al agregar participante al torneo",
+        });
+      }
+
+      if (!result[0].out_participation) {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: "Error al procesar la participación",
+        });
+      }
+
+      return result[0].out_participation;
+    }),
+
+  // Admin: Remove participant from tournament
+  adminRemoveParticipant: authedMiddleware
+    .route({
+      method: "DELETE",
+      path: "/tournaments/{tournamentId}/participants/{userId}",
+      summary: "Remover participante de torneo (Admin)",
+      description:
+        "Permite al administrador remover un participante del torneo",
+      tags: ["tournaments", "admin"],
+    })
+    .input(
+      z.object({
+        tournamentId: z.number(),
+        userId: z.number(),
+      }),
+    )
+    .output(
+      z.object({
+        success: z.boolean(),
+        message: z.string(),
+      }),
+    )
+    .handler(async ({ input, context }) => {
+      const adminId = context?.session?.userId;
+
+      // Use database function fn_tournament_admin_remove_participant
+      const result = await query<{
+        out_success: boolean;
+        out_message: string;
+      }>(`SELECT * FROM fn_tournament_admin_remove_participant($1, $2, $3)`, [
+        input.tournamentId,
+        input.userId,
+        adminId,
+      ]);
+
+      if (result.length === 0 || !result[0].out_success) {
+        throw new ORPCError("BAD_REQUEST", {
+          message:
+            result[0]?.out_message ||
+            "Error al remover participante del torneo",
+        });
+      }
+
+      return {
+        success: result[0].out_success,
+        message: result[0].out_message,
+      };
+    }),
 };

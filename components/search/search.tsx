@@ -65,7 +65,7 @@ export function SearchBar({
 
         // Clean empty params
         const cleanedParams = cleanEmptyParams(
-          Object.fromEntries(params.entries())
+          Object.fromEntries(params.entries()),
         );
 
         // Build new URL with cleaned params
@@ -84,7 +84,7 @@ export function SearchBar({
         setIsLoading(false);
       }
     },
-    [router, searchParams, searchParamKey]
+    [router, searchParams, searchParamKey],
   );
 
   // Use TanStack Pacer for debouncing
@@ -133,7 +133,7 @@ export function SearchBar({
     <section
       className={cn(
         "flex flex-col w-auto lg:w-md items-start space-x-2",
-        className
+        className,
       )}
     >
       <div className="relative w-full">

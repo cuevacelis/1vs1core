@@ -58,7 +58,7 @@ export function EditProfileForm({
           onSuccess: () => {
             setOpen(false);
           },
-        }
+        },
       );
     },
   });

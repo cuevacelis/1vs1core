@@ -273,3 +273,147 @@ BEGIN
     ORDER BY tp.registration_date ASC;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Function for admin to add user to tournament (bypasses validations)
+CREATE OR REPLACE FUNCTION fn_tournament_admin_add_participant(
+    p_tournament_id INTEGER,
+    p_user_id INTEGER,
+    p_admin_id INTEGER
+)
+RETURNS TABLE(
+    out_success BOOLEAN,
+    out_message TEXT,
+    out_participation JSONB
+) AS $$
+DECLARE
+    v_tournament tournament%ROWTYPE;
+    v_existing_count INTEGER;
+    v_participation_id INTEGER;
+    v_is_admin BOOLEAN;
+BEGIN
+    /******************************************************************************
+      NOMBRE:  fn_tournament_admin_add_participant
+      PROPÓSITO: Función para que un administrador agregue un usuario a un torneo directamente
+      INVOCACIÓN: SELECT * FROM fn_tournament_admin_add_participant(1, 5, 1);
+      PARÁMETROS:
+        - p_tournament_id: ID del torneo
+        - p_user_id: ID del usuario a agregar
+        - p_admin_id: ID del administrador que realiza la acción
+      RETORNA: Éxito, mensaje descriptivo y datos de la participación en JSONB
+      VALIDACIONES:
+        - Verifica que el usuario que ejecuta sea administrador
+        - Verifica que el torneo exista
+        - Verifica que el usuario a agregar exista
+        - Verifica que el usuario no esté ya inscrito
+      NOTAS:
+        - Esta función NO valida el estado del torneo (puede agregar en cualquier estado)
+        - Esta función NO valida el límite de participantes (admin puede sobrepasarlo)
+    ******************************************************************************/
+    -- Verify admin role
+    SELECT EXISTS(
+        SELECT 1 FROM users u
+        INNER JOIN role r ON u.role_id = r.id
+        WHERE u.id = p_admin_id AND r.name = 'admin'
+    ) INTO v_is_admin;
+
+    IF NOT v_is_admin THEN
+        RETURN QUERY SELECT false, 'No tienes permisos de administrador', NULL::JSONB;
+        RETURN;
+    END IF;
+
+    -- Get tournament
+    SELECT * INTO v_tournament FROM tournament WHERE id = p_tournament_id;
+
+    -- Check if tournament exists
+    IF v_tournament.id IS NULL THEN
+        RETURN QUERY SELECT false, 'Torneo no encontrado', NULL::JSONB;
+        RETURN;
+    END IF;
+
+    -- Check if user exists
+    IF NOT EXISTS(SELECT 1 FROM users WHERE id = p_user_id) THEN
+        RETURN QUERY SELECT false, 'Usuario no encontrado', NULL::JSONB;
+        RETURN;
+    END IF;
+
+    -- Check if already joined
+    SELECT COUNT(*) INTO v_existing_count
+    FROM tournament_participations
+    WHERE tournament_id = p_tournament_id AND user_id = p_user_id;
+
+    IF v_existing_count > 0 THEN
+        RETURN QUERY SELECT false, 'El usuario ya está inscrito en este torneo', NULL::JSONB;
+        RETURN;
+    END IF;
+
+    -- Add participant directly as confirmed (admin bypass)
+    INSERT INTO tournament_participations (tournament_id, user_id, state)
+    VALUES (p_tournament_id, p_user_id, 'confirmed')
+    RETURNING id INTO v_participation_id;
+
+    -- Return success with participation data
+    RETURN QUERY
+    SELECT
+        true,
+        'Participante agregado exitosamente al torneo',
+        to_jsonb(tp.*) as participation
+    FROM tournament_participations tp
+    WHERE tp.id = v_participation_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function for admin to remove participant from tournament
+CREATE OR REPLACE FUNCTION fn_tournament_admin_remove_participant(
+    p_tournament_id INTEGER,
+    p_user_id INTEGER,
+    p_admin_id INTEGER
+)
+RETURNS TABLE(
+    out_success BOOLEAN,
+    out_message TEXT
+) AS $$
+DECLARE
+    v_is_admin BOOLEAN;
+    v_deleted_count INTEGER;
+BEGIN
+    /******************************************************************************
+      NOMBRE:  fn_tournament_admin_remove_participant
+      PROPÓSITO: Función para que un administrador remueva un participante de un torneo
+      INVOCACIÓN: SELECT * FROM fn_tournament_admin_remove_participant(1, 5, 1);
+      PARÁMETROS:
+        - p_tournament_id: ID del torneo
+        - p_user_id: ID del usuario a remover
+        - p_admin_id: ID del administrador que realiza la acción
+      RETORNA: Éxito y mensaje descriptivo
+      VALIDACIONES:
+        - Verifica que el usuario que ejecuta sea administrador
+        - Verifica que el participante exista en el torneo
+      NOTAS:
+        - Esta función elimina físicamente la participación (DELETE, no soft delete)
+    ******************************************************************************/
+    -- Verify admin role
+    SELECT EXISTS(
+        SELECT 1 FROM users u
+        INNER JOIN role r ON u.role_id = r.id
+        WHERE u.id = p_admin_id AND r.name = 'admin'
+    ) INTO v_is_admin;
+
+    IF NOT v_is_admin THEN
+        RETURN QUERY SELECT false, 'No tienes permisos de administrador';
+        RETURN;
+    END IF;
+
+    -- Delete participation
+    DELETE FROM tournament_participations
+    WHERE tournament_id = p_tournament_id AND user_id = p_user_id;
+
+    GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
+
+    IF v_deleted_count = 0 THEN
+        RETURN QUERY SELECT false, 'Participante no encontrado en este torneo';
+        RETURN;
+    END IF;
+
+    RETURN QUERY SELECT true, 'Participante removido exitosamente del torneo';
+END;
+$$ LANGUAGE plpgsql;
