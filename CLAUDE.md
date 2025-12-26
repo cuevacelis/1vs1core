@@ -874,6 +874,16 @@ Use `QueryStatusHandler` to wrap content that depends on query results. It handl
 - ✅ Empty data states (optional)
 - ✅ Success state (renders children)
 
+**Configuration Options**:
+- `queries` - Array of queries to monitor (required)
+- `hideLoadingModal` - Hides the default loading modal (default: false)
+- `hideNoDataMessage` - Hides the empty state message (default: false)
+- `hideErrorMessage` - Hides error messages (default: false)
+- `loadingType` - Type of loading check: "isLoading" or "isFetching" (default: "isFetching")
+- `emptyStateComponent` - Custom component to show when there's no data
+- `customLoadingComponent` - Custom loading component (replaces default ModalLoading)
+- `errorMode` - Error display mode: "block" (full error page) or "partial" (error alert) (default: "partial")
+
 **Pattern**:
 
 ```typescript
@@ -979,6 +989,172 @@ export function StudentsTable() {
 }
 ```
 
+**With Custom Loading Component**:
+
+```typescript
+import { QueryStatusHandler } from "@/components/request-status/query-status-handler";
+import { LoadingMessage } from "@/components/validate/message/loading-message";
+import { useEntityQuery } from "./_components/services/use-entity.query";
+
+export function MyComponent() {
+  const dataQuery = useEntityQuery();
+
+  return (
+    <QueryStatusHandler
+      queries={[dataQuery]}
+      customLoadingComponent={
+        <div className="flex items-center justify-center p-8">
+          <LoadingMessage
+            modeView="card"
+            message="Cargando información personalizada..."
+          />
+        </div>
+      }
+    >
+      <div>{dataQuery.data?.name}</div>
+    </QueryStatusHandler>
+  );
+}
+```
+
+**Custom Loading and Empty State Components**:
+
+**CRITICAL**: When creating components with `QueryStatusHandler`, you MUST create custom loading and empty-state components following this directory structure:
+
+**Directory Structure Pattern**:
+```
+app/(auth)/[page]/_components/
+├── [component-name]/
+│   ├── loading/
+│   │   └── [component-name]-loading.tsx    # Custom loading component
+│   ├── empity-state/                         # Note: "empity-state" (typo is intentional)
+│   │   └── [component-name]-empty.tsx       # Custom empty state component
+│   ├── services/
+│   │   └── use-[entity].query.ts            # Query hooks
+│   └── [component-name].tsx                  # Main component
+```
+
+**Example Structure**:
+```
+app/(auth)/perfil/_components/
+├── profile-information/
+│   ├── loading/
+│   │   └── profile-information-loading.tsx
+│   ├── empity-state/
+│   │   └── profile-information-empty.tsx
+│   ├── services/
+│   │   └── use-user-profile.query.ts
+│   └── profile-information.tsx
+├── statistics/
+│   ├── loading/
+│   │   └── statistics-loading.tsx
+│   ├── empity-state/
+│   │   └── statistics-empty.tsx
+│   ├── services/
+│   │   └── use-user-match-statistics.query.ts
+│   └── statistics.tsx
+└── page.tsx
+```
+
+**Loading Component Pattern**:
+
+The loading component should mirror the structure of the main component but with skeleton loaders:
+
+```typescript
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+export function ProfileInformationLoading() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <Skeleton className="h-9 w-64" />
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/4" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+**Empty State Component Pattern**:
+
+The empty state component should provide helpful messaging when no data is available:
+
+```typescript
+import { Trophy } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+export function StatisticsEmpty() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Estadísticas</CardTitle>
+      </CardHeader>
+      <CardContent className="py-12">
+        <div className="text-center space-y-4">
+          <div className="mx-auto w-fit p-4 bg-muted/30 rounded-full">
+            <Trophy className="h-16 w-16 text-muted-foreground/30" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold">
+              Aún no tienes estadísticas
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              Parece que aún no has participado en ninguna partida.
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+**Usage in Main Component**:
+
+```typescript
+"use client";
+
+import { QueryStatusHandler } from "@/components/request-status/query-status-handler";
+import { ProfileInformationEmpty } from "./empity-state/profile-information-empty";
+import { ProfileInformationLoading } from "./loading/profile-information-loading";
+import { useUserProfileQuery } from "./services/use-user-profile.query";
+
+export function ProfileInformation() {
+  const profileQuery = useUserProfileQuery();
+  const profile = profileQuery.data;
+
+  return (
+    <QueryStatusHandler
+      queries={[profileQuery]}
+      customLoadingComponent={<ProfileInformationLoading />}
+      emptyStateComponent={<ProfileInformationEmpty />}
+    >
+      {/* Main component content */}
+      <Card>
+        <CardContent>{profile?.name}</CardContent>
+      </Card>
+    </QueryStatusHandler>
+  );
+}
+```
+
+**Key Rules**:
+- ✅ ALWAYS create both `loading/` and `empity-state/` folders for components using `QueryStatusHandler`
+- ✅ Loading components should use `<Skeleton />` components to match the layout structure
+- ✅ Empty state components should provide helpful messaging with icons
+- ✅ File names follow pattern: `[component-name]-loading.tsx` and `[component-name]-empty.tsx`
+- ✅ Import paths: `./loading/[component-name]-loading` and `./empity-state/[component-name]-empty`
+- 🔴 NEVER use default loading/empty states from `QueryStatusHandler` for production components
+- 🔴 NEVER create loading/empty components in the same directory as the main component
+
 #### MutationStatusHandler
 
 Use `MutationStatusHandler` to handle mutation states (create, update, delete operations). It handles:
@@ -990,6 +1166,8 @@ Use `MutationStatusHandler` to handle mutation states (create, update, delete op
 - `hideLoadingModal` - Hides the loading state UI (useful when you show custom loading UI)
 - `hideSuccessModal` - Hides the success state UI (useful when you show custom success messages)
 - `mutations` - Array of mutations to monitor (use `mutations={[mutation]}` NOT `mutation={mutation}`)
+
+**Placement Rule**: Like `QueryStatusHandler`, `MutationStatusHandler` should be placed OUTSIDE of specific UI elements (forms, cards, etc.) at the component root level. It acts as a global status monitor for mutations.
 
 **Basic Pattern - Simple Form**:
 
@@ -1007,18 +1185,93 @@ export function CreateTournamentForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <div>
+      {/* MutationStatusHandler at component root level - NOT inside form */}
       <MutationStatusHandler mutations={[createMutation]} />
 
-      {/* Form fields */}
-      <input name="name" />
-      <button type="submit" disabled={createMutation.isPending}>
-        Crear Torneo
-      </button>
-    </form>
+      <form onSubmit={handleSubmit}>
+        {/* Form fields */}
+        <input name="name" />
+        <button type="submit" disabled={createMutation.isPending}>
+          Crear Torneo
+        </button>
+      </form>
+    </div>
   );
 }
 ```
+
+**Pattern with Admin Action Buttons (Edit/Delete)**:
+
+When implementing admin controls for CRUD operations, follow this pattern:
+
+```typescript
+"use client";
+
+import { Pencil, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import { MutationStatusHandler } from "@/components/request-status/mutation-status-handler";
+import { Button } from "@/components/ui/button";
+import { DeleteConfirmDialog } from "./delete-confirm-dialog";
+import { useDeleteEntityMutation } from "./services/use-delete-entity.mutation";
+import { useUserMeQuery } from "./services/use-user-me.query";
+
+export function EntityDetail({ entityId }: { entityId: number }) {
+  const userMeQuery = useUserMeQuery();
+  const deleteMutation = useDeleteEntityMutation();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const user = userMeQuery.data;
+  const isAdmin = user?.roles?.some((role) => role.name === "admin") ?? false;
+
+  return (
+    <div>
+      {/* MutationStatusHandler at component root level */}
+      <MutationStatusHandler mutations={[deleteMutation]} />
+
+      {/* Delete confirmation dialog */}
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        entityId={entityId}
+      />
+
+      {/* Admin action buttons */}
+      {isAdmin && (
+        <div className="flex items-center gap-2">
+          <Link href={`/entity/${entityId}/editar`}>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Pencil className="h-4 w-4" />
+              Editar
+            </Button>
+          </Link>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="gap-2"
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+            Eliminar
+          </Button>
+        </div>
+      )}
+
+      {/* Rest of component content */}
+    </div>
+  );
+}
+```
+
+**Key Points for Admin Actions**:
+- ✅ Use `useUserMeQuery()` to get current user data
+- ✅ Check `user?.roles?.some((role) => role.name === "admin")` for admin role
+- ✅ Edit button: Use `Link` with `variant="outline"` pointing to `/entity/[id]/editar`
+- ✅ Delete button: Use `variant="destructive"` that opens a confirmation dialog
+- ✅ Icons: `Pencil` for edit, `Trash2` for delete (from `lucide-react`)
+- ✅ Keep buttons at `size="sm"` with `gap-2` class for icon spacing
+- ✅ Use `MutationStatusHandler` to monitor delete mutation status
 
 **Advanced Pattern - Custom UI with State Checks**:
 
@@ -1367,11 +1620,446 @@ export function EnrolledStudentsModal({
 - 🔴 NEVER manually check `query.isLoading` or `query.isError` - use `QueryStatusHandler`
 - 🔴 NEVER render content without wrapping in status handlers
 - 🔴 NEVER use `mutation={mutation}` - ALWAYS use `mutations={[mutation]}`
+- 🔴 NEVER place `MutationStatusHandler` inside `<form>` tags - it should be at component root level
 - 🟢 ALWAYS use `QueryStatusHandler` for components consuming query data
-- 🟢 ALWAYS use `MutationStatusHandler` for forms with mutations
-- 🟢 ALWAYS wrap form content as children of `MutationStatusHandler`
+- 🟢 ALWAYS use `MutationStatusHandler` for components with mutations
+- 🟢 ALWAYS place both `QueryStatusHandler` and `MutationStatusHandler` at component root level, OUTSIDE of specific UI elements
 - 🟢 Pass ALL dependent queries to `QueryStatusHandler` queries array
 - 🟢 Use `hideLoadingModal` and `hideSuccessModal` when implementing custom UI states
+- 🟢 For admin CRUD buttons: use `Pencil` icon for edit (variant="outline"), `Trash2` for delete (variant="destructive")
+
+### Self-Contained Components Architecture
+
+**CRITICAL**: Components that consume queries MUST be self-contained and declare their own hooks internally. Page components should NEVER declare query hooks and pass data down as props.
+
+**Anti-Pattern (WRONG)**:
+
+```typescript
+// ❌ BAD: Page declares hooks and passes data as props
+export default function Profile() {
+  const profileQuery = useUserProfileQuery();
+  const statsQuery = useUserMatchStatisticsQuery();
+
+  return (
+    <div>
+      <ProfileInformation
+        profile={profileQuery.data}
+        stats={statsQuery.data}
+      />
+      <Statistics stats={statsQuery.data} />
+    </div>
+  );
+}
+```
+
+**Correct Pattern (RIGHT)**:
+
+```typescript
+// ✅ GOOD: Page is a presentational component
+export default function Profile() {
+  return (
+    <div>
+      <ProfileInformation />
+      <Statistics />
+    </div>
+  );
+}
+
+// ✅ GOOD: Each component declares its own hooks
+export function ProfileInformation() {
+  const profileQuery = useUserProfileQuery();
+  const statsQuery = useUserMatchStatisticsQuery();
+
+  const profile = profileQuery.data;
+  const stats = statsQuery.data;
+
+  // Compute derived values
+  const displayName = profile?.person?.first_name
+    ? `${profile.person.first_name} ${profile.person.paternal_last_name}`
+    : profile?.name || "Default";
+
+  return (
+    <QueryStatusHandler queries={[profileQuery, statsQuery]}>
+      <Card>
+        {/* Use computed values directly in JSX */}
+        <CardTitle>{displayName}</CardTitle>
+        {/* ... rest of component */}
+      </Card>
+    </QueryStatusHandler>
+  );
+}
+
+export function Statistics() {
+  const statsQuery = useUserMatchStatisticsQuery();
+
+  const stats = statsQuery.data;
+  const totalMatches = stats?.totalMatches || 0;
+  const wins = stats?.wins || 0;
+
+  return (
+    <QueryStatusHandler queries={[statsQuery]}>
+      <Card>
+        {/* Use stats directly */}
+        <div>{wins} / {totalMatches}</div>
+      </Card>
+    </QueryStatusHandler>
+  );
+}
+```
+
+**Key Principles**:
+
+1. **Data Colocation**: Query hooks should be declared where the data is used
+2. **No Prop Drilling**: Don't pass query data as props from parent to child
+3. **Self-Contained**: Each component handles its own data fetching and state management
+4. **Single Responsibility**: Components should either fetch data OR compose other components, not both
+5. **No Wrapper Components**: Don't create internal wrapper components just to separate logic from JSX
+6. **Direct Usage**: Compute derived values and use them directly in JSX within the same component
+
+**Benefits**:
+- ✅ **Independence**: Components can be moved/reused without dependencies
+- ✅ **Simplicity**: One level of abstraction per component
+- ✅ **Maintainability**: Changes are localized to the component
+- ✅ **Testability**: Each component can be tested in isolation
+- ✅ **Better Performance**: React Query handles caching, multiple calls to same hook are optimized
+
+**Example - Complete Self-Contained Component**:
+
+```typescript
+"use client";
+
+import { QueryStatusHandler } from "@/components/request-status/query-status-handler";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useUserProfileQuery } from "./services/use-user-profile.query";
+import { useUserStatsQuery } from "./services/use-user-stats.query";
+
+export function UserDashboard() {
+  // Declare hooks internally
+  const profileQuery = useUserProfileQuery();
+  const statsQuery = useUserStatsQuery();
+
+  // Extract data
+  const profile = profileQuery.data;
+  const stats = statsQuery.data;
+
+  // Compute derived values
+  const displayName = profile?.name || "User";
+  const winRate = stats?.totalMatches
+    ? (stats.wins / stats.totalMatches * 100).toFixed(1)
+    : 0;
+
+  // Handle all states with QueryStatusHandler
+  return (
+    <QueryStatusHandler queries={[profileQuery, statsQuery]}>
+      <Card>
+        <CardHeader>
+          <CardTitle>{displayName}</CardTitle>
+          <Badge>{profile?.role}</Badge>
+        </CardHeader>
+        <CardContent>
+          <div>Win Rate: {winRate}%</div>
+          <div>Total Matches: {stats?.totalMatches}</div>
+        </CardContent>
+      </Card>
+    </QueryStatusHandler>
+  );
+}
+```
+
+**Common Mistakes to Avoid**:
+
+```typescript
+// ❌ WRONG: Creating unnecessary wrapper component
+export function ProfileInformation() {
+  const profileQuery = useUserProfileQuery();
+
+  return (
+    <QueryStatusHandler queries={[profileQuery]}>
+      <ProfileContent profile={profileQuery.data} />  {/* Unnecessary wrapper */}
+    </QueryStatusHandler>
+  );
+}
+
+function ProfileContent({ profile }) {  /* Unnecessary internal component */
+  return <Card>{profile?.name}</Card>;
+}
+
+// ✅ CORRECT: Single component handles everything
+export function ProfileInformation() {
+  const profileQuery = useUserProfileQuery();
+  const profile = profileQuery.data;
+
+  return (
+    <QueryStatusHandler queries={[profileQuery]}>
+      <Card>{profile?.name}</Card>
+    </QueryStatusHandler>
+  );
+}
+```
+
+```typescript
+// ❌ WRONG: Passing UseQueryResult as prop
+interface Props {
+  profileQuery: UseQueryResult<Profile, Error>;  // Don't do this
+}
+
+// ✅ CORRECT: No props, declare hooks internally
+export function ProfileInformation() {
+  const profileQuery = useUserProfileQuery();  // Declare internally
+  // ...
+}
+```
+
+## Form Components & Field Validation
+
+### Form Field Components (`components/form/`)
+
+This project uses custom form field components that integrate with TanStack Form and Zod schemas for automatic required/optional field indicators.
+
+**Available Form Components**:
+- `TextField` - Standard text input field
+- `TextAreaField` - Multiline text input
+- `SelectField` - Dropdown select field
+- `ComboboxField` - Searchable select field
+- `CheckboxField` - Checkbox input
+- `RadioGroupField` - Radio button group
+- And more in `components/form/components/`
+
+### Automatic Required Field Indicators
+
+**CRITICAL**: Form field components automatically add a red asterisk (*) to required fields based on the Zod schema. You MUST NEVER manually add `<span className="text-destructive">*</span>` to labels.
+
+**How it works**:
+
+1. **`useFieldOptionalityCheck` Hook** (`components/form/hooks/use-field-optionality-check.ts`):
+   - Automatically inspects the Zod schema to determine if a field is optional
+   - Returns `true` if field is optional (using `z.optional()`), `false` if required, `null` if no schema
+   - Supports nested object paths and array indices
+   - Can hide the indicator when field is disabled (via `hideWhenDisabled` option)
+
+2. **`FormLabelOptionalitySuffix` Component** (`components/form/components/form-label-optionality-suffix.tsx`):
+   - Renders the red asterisk (*) for required fields
+   - Returns `null` for optional fields or when no schema is provided
+   - Used internally by all form field components
+
+3. **Integration in Form Fields**:
+   ```typescript
+   const isOptional = useFieldOptionalityCheck(fieldName, schema, {
+     hideWhenDisabled: true,
+     disabled: inputProps?.disabled,
+   });
+
+   // In JSX
+   <FieldLabel>{label}</FieldLabel>
+   <FormLabelOptionalitySuffix isOptional={isOptional} />
+   ```
+
+### Form Field Usage Pattern
+
+**Basic Form Field Example**:
+
+```typescript
+import { TextField } from "@/components/form/components/text-field";
+import { z } from "zod";
+
+// Define Zod schema
+const tournamentSchema = z.object({
+  name: z.string().min(1), // Required field (no .optional())
+  description: z.string().optional(), // Optional field
+  maxPlayers: z.number().min(1),
+});
+
+// In your form component
+<Form schema={tournamentSchema}>
+  {/* Red asterisk (*) will be added automatically */}
+  <TextField label="Nombre del Torneo" name="name" schema={tournamentSchema} />
+
+  {/* No asterisk (optional field) */}
+  <TextField label="Descripción" name="description" schema={tournamentSchema} />
+
+  {/* Red asterisk (*) will be added automatically */}
+  <TextField label="Máximo de Jugadores" name="maxPlayers" schema={tournamentSchema} />
+</Form>
+```
+
+### Form Default Values Pattern
+
+**CRITICAL**: When defining default values for TanStack Form, ALWAYS use `z.input<typeof schema>` to ensure type safety between the schema and default values.
+
+**Pattern**:
+
+```typescript
+import { useForm } from "@tanstack/react-form";
+import { zodValidator } from "@tanstack/zod-form-adapter";
+import { z } from "zod";
+
+// Define Zod schema
+const tournamentSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  maxPlayers: z.number().min(1),
+  startDate: z.string(),
+});
+
+// Define default values with type inference from schema
+const defaultValues: z.input<typeof tournamentSchema> = {
+  name: "",
+  description: "",
+  maxPlayers: 8,
+  startDate: new Date().toISOString().split("T")[0],
+};
+
+export function CreateTournamentForm() {
+  const form = useForm({
+    defaultValues,
+    validatorAdapter: zodValidator(),
+    validators: {
+      onChange: tournamentSchema,
+    },
+    onSubmit: async ({ value }) => {
+      // Handle form submission
+      await client.tournaments.create(value);
+    },
+  });
+
+  return (
+    <form onSubmit={(e) => {
+      e.preventDefault();
+      form.handleSubmit();
+    }}>
+      <TextField label="Nombre" name="name" form={form} schema={tournamentSchema} />
+      <TextField label="Descripción" name="description" form={form} schema={tournamentSchema} />
+      {/* ... more fields */}
+    </form>
+  );
+}
+```
+
+**With Query Data as Default Values**:
+
+When you need to populate default values from query data (e.g., edit forms), use the same pattern:
+
+```typescript
+import { useForm } from "@tanstack/react-form";
+import { zodValidator } from "@tanstack/zod-form-adapter";
+import { z } from "zod";
+import { useEffect } from "react";
+
+const tournamentSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  maxPlayers: z.number().min(1),
+});
+
+export function EditTournamentForm({ tournamentId }: { tournamentId: number }) {
+  const tournamentQuery = useTournamentDetailQuery(tournamentId);
+  const tournament = tournamentQuery.data;
+
+  // Define default values with fallbacks
+  const defaultValues: z.input<typeof tournamentSchema> = {
+    name: tournament?.name ?? "",
+    description: tournament?.description ?? "",
+    maxPlayers: tournament?.maxPlayers ?? 8,
+  };
+
+  const form = useForm({
+    defaultValues,
+    validatorAdapter: zodValidator(),
+    validators: {
+      onChange: tournamentSchema,
+    },
+    onSubmit: async ({ value }) => {
+      await client.tournaments.update({ id: tournamentId, ...value });
+    },
+  });
+
+  // Reset form when query data changes
+  useEffect(() => {
+    if (tournament) {
+      form.reset();
+    }
+  }, [tournament, form]);
+
+  return (
+    <QueryStatusHandler queries={[tournamentQuery]}>
+      <form onSubmit={(e) => {
+        e.preventDefault();
+        form.handleSubmit();
+      }}>
+        <TextField label="Nombre" name="name" form={form} schema={tournamentSchema} />
+        <TextField label="Descripción" name="description" form={form} schema={tournamentSchema} />
+        {/* ... more fields */}
+      </form>
+    </QueryStatusHandler>
+  );
+}
+```
+
+**Key Benefits**:
+- ✅ **Type Safety**: TypeScript enforces that default values match schema structure
+- ✅ **Autocomplete**: Get IntelliSense for all schema fields
+- ✅ **Error Prevention**: Catch mismatches between schema and default values at compile time
+- ✅ **Refactoring Safety**: Schema changes automatically flag outdated default values
+
+**Rules**:
+- 🟢 **ALWAYS** use `z.input<typeof schema>` for default values type annotation
+- 🟢 **ALWAYS** provide default values for all required fields
+- 🟢 **ALWAYS** use nullish coalescing (`??`) when setting defaults from query data
+- 🔴 **NEVER** use plain `const defaultValues = { ... }` without type annotation
+- 🔴 **NEVER** use `any` or `unknown` for default values type
+
+**Anti-Pattern (WRONG)**:
+
+```typescript
+// ❌ NEVER manually add asterisks to labels
+<TextField
+  label={<>Nombre del Torneo <span className="text-destructive">*</span></>}
+  name="name"
+  schema={tournamentSchema}
+/>
+
+// ❌ The component already handles this automatically!
+```
+
+**Correct Pattern (RIGHT)**:
+
+```typescript
+// ✅ Just pass the label text - asterisk is added automatically
+<TextField
+  label="Nombre del Torneo"
+  name="name"
+  schema={tournamentSchema}
+/>
+```
+
+### Field Optionality Rules
+
+**Zod Schema Definition**:
+- **Required Field**: `z.string()` or `z.number()` etc. → Shows red asterisk (*)
+- **Optional Field**: `z.string().optional()` → No asterisk
+- **Nullable Field**: `z.string().nullable()` → Shows red asterisk (still required to provide value, just can be null)
+
+**Special Cases**:
+- If `schema` prop is not provided, no asterisk is shown
+- If field is `disabled` and `hideWhenDisabled` is enabled, no asterisk is shown
+- For nested fields (e.g., `person.firstName`), the hook automatically resolves the correct Zod path
+
+### Benefits
+
+- ✅ **Consistency**: All forms have uniform required field indicators
+- ✅ **Automatic**: No manual management of asterisks needed
+- ✅ **Type-Safe**: Based on Zod schema validation rules
+- ✅ **DRY**: Single source of truth (Zod schema) for validation and UI
+- ✅ **Maintainability**: Change schema, UI updates automatically
+
+### Rules
+
+- 🔴 **NEVER** manually add `<span className="text-destructive">*</span>` to form labels
+- 🔴 **NEVER** create custom required indicators for form fields
+- 🟢 **ALWAYS** pass the `schema` prop to form field components
+- 🟢 **ALWAYS** use plain text for the `label` prop (let the component add the asterisk)
+- 🟢 **ALWAYS** use `z.optional()` in Zod schema for truly optional fields
 
 ## Important Notes
 
@@ -1387,4 +2075,7 @@ export function EnrolledStudentsModal({
 - **Session Management**: Sessions are cookie-based, not JWT - use `lib/auth/session.ts` helpers
 - **Query Hooks**: MUST follow TanStack Query patterns with `orpc.*.*.queryOptions()` - NO manual query keys, NO barrel exports
 - **Status Handlers**: ALL components using TanStack Query hooks MUST use `QueryStatusHandler` (for queries) or `MutationStatusHandler` (for mutations) from `@/components/request-status/` - NEVER manually check `isLoading`, `isError`, or `isPending`
+- **Self-Contained Components**: Components MUST declare their own query hooks internally - NEVER pass query data or `UseQueryResult` as props from parent components. Page components should be presentational only.
+- **No Wrapper Components**: Don't create internal wrapper components just to separate query logic from JSX - keep everything in a single component for simplicity
 - **SSR Support**: Use `getQueryClient()` and `HydrateClient` from `@/lib/query/hydration` for server-side rendering with automatic serialization
+- **Form Field Indicators**: NEVER manually add asterisks (*) to form labels - use the automatic `useFieldOptionalityCheck` system that inspects Zod schemas

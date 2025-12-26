@@ -1,7 +1,7 @@
 import type { UseQueryResult } from "@tanstack/react-query";
-import { notFound } from "next/navigation";
 import ErrorBoundary from "../error/error-boundary";
 import { ModalLoading } from "../modals/modal-loading";
+import { NoDataFound } from "../no-data-found";
 import { ErrorMessage } from "../validate/message/error-message";
 import ErrorAlertComponent from "./components/error-alert-component";
 import { ErrorComponent } from "./components/error-component";
@@ -18,6 +18,7 @@ interface IQueryStatusHandlerProps {
   hideErrorMessage?: boolean;
   loadingType?: LoadingType;
   emptyStateComponent?: React.ReactNode;
+  customLoadingComponent?: React.ReactNode;
   errorMode?: ErrorDisplayMode;
 }
 
@@ -29,6 +30,7 @@ export function QueryStatusHandler({
   hideErrorMessage = false,
   loadingType = "isFetching",
   emptyStateComponent,
+  customLoadingComponent,
   errorMode = "partial",
 }: IQueryStatusHandlerProps) {
   const isLoading = queries.some((query) => query[loadingType]);
@@ -38,13 +40,14 @@ export function QueryStatusHandler({
   const successfulQueries = queries.filter((query) => !query.isError);
   const hasSuccessfulQueries = successfulQueries.length > 0;
   const allSuccessfulQueriesCompleted = successfulQueries.every(
-    (query) => query.isSuccess,
+    (query) => query.isSuccess
   );
 
   // Check if any query has data
   const hasData = hasAnyData(queries);
 
   const shouldShowLoadingModal = !hideLoadingModal && isLoading;
+  const loadingComponent = customLoadingComponent ?? <ModalLoading />;
 
   const shouldShowNoDataMessage =
     !hideNoDataMessage &&
@@ -65,8 +68,8 @@ export function QueryStatusHandler({
           <ErrorMessage message="Error al mostrar el contenido. Por favor, recargue la página o contacte al administrador si el problema persiste." />
         }
       >
-        {emptyStateComponent ?? notFound()}
-        <ModalLoading open={shouldShowLoadingModal} />
+        {emptyStateComponent ?? <NoDataFound />}
+        {shouldShowLoadingModal && loadingComponent}
       </ErrorBoundary>
     );
   }
@@ -79,7 +82,7 @@ export function QueryStatusHandler({
         }
       >
         <ErrorComponent message={formatErrorMessages(queries)} />
-        <ModalLoading open={shouldShowLoadingModal} />
+        {shouldShowLoadingModal && loadingComponent}
       </ErrorBoundary>
     );
   }
@@ -97,9 +100,9 @@ export function QueryStatusHandler({
         />
       )}
 
-      {children}
+      {shouldShowLoadingModal && customLoadingComponent ? null : children}
 
-      <ModalLoading open={shouldShowLoadingModal} />
+      {shouldShowLoadingModal && loadingComponent}
     </ErrorBoundary>
   );
 }

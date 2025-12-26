@@ -1,72 +1,69 @@
 "use client";
 
+import { revalidateLogic } from "@tanstack/react-form";
 import { ArrowLeft, Calendar, Trophy } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { toast } from "sonner";
+import type { z } from "zod";
+import { useAppForm } from "@/components/form/hooks/use-form";
+import { MutationStatusHandler } from "@/components/request-status/mutation-status-handler";
+import { QueryStatusHandler } from "@/components/request-status/query-status-handler";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { useGamesListQuery } from "../_components/services/use-games-list.query";
+import { tournamentCreateSchema } from "./_components/schemas/tournament-create.schema";
 import { useTournamentCreateMutation } from "./_components/services/use-tournament-create.mutation";
 
 export default function NewTournamentPage() {
   const router = useRouter();
-  const [formData, setFormData] = useState({
+
+  // Fetch available games
+  const gamesQuery = useGamesListQuery();
+
+  // Tournament creation mutation
+  const createMutation = useTournamentCreateMutation();
+
+  // Define default values with type inference from schema
+  const defaultValues: z.input<typeof tournamentCreateSchema> = {
     name: "",
     description: "",
     game_id: "",
     start_date: "",
     end_date: "",
     max_participants: "",
-  });
-
-  // Fetch available games
-  const { data: games, isLoading: gamesLoading } = useGamesListQuery();
-
-  // Tournament creation mutation
-  const createMutation = useTournamentCreateMutation();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    try {
-      await createMutation.mutateAsync({
-        name: formData.name,
-        description: formData.description || undefined,
-        game_id: parseInt(formData.game_id, 10),
-        start_date: formData.start_date || undefined,
-        end_date: formData.end_date || undefined,
-        max_participants: formData.max_participants
-          ? parseInt(formData.max_participants, 10)
-          : undefined,
-      });
-
-      toast.success("Torneo creado exitosamente", {
-        description: "El torneo ha sido creado y está en estado borrador.",
-      });
-
-      router.push("/torneo");
-      router.refresh();
-    } catch (error) {
-      toast.error("Error al crear torneo", {
-        description:
-          error instanceof Error
-            ? error.message
-            : "Ocurrió un error inesperado",
-      });
-    }
   };
+
+  // Initialize form with TanStack Form
+  const form = useAppForm({
+    defaultValues,
+    validationLogic: revalidateLogic({
+      mode: "submit",
+      modeAfterSubmission: "change",
+    }),
+    validators: {
+      onDynamic: tournamentCreateSchema,
+    },
+    onSubmit: async ({ value }) => {
+      createMutation.mutate(
+        {
+          name: value.name,
+          description: value.description,
+          game_id: Number.parseInt(value.game_id, 10),
+          start_date: value.start_date || undefined,
+          end_date: value.end_date || undefined,
+          max_participants: value.max_participants
+            ? Number.parseInt(value.max_participants, 10)
+            : undefined,
+        },
+        {
+          onSuccess: () => {
+            router.push("/torneo");
+            router.refresh();
+          },
+        }
+      );
+    },
+  });
 
   return (
     <div className="py-8">
@@ -90,155 +87,137 @@ export default function NewTournamentPage() {
         </div>
 
         {/* Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Información del Torneo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Tournament Name */}
-              <div className="space-y-2">
-                <Label htmlFor="name">
-                  Nombre del Torneo <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="name"
-                  required
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  placeholder="Ej: Copa de Primavera 2025"
-                  maxLength={200}
-                />
-              </div>
-
-              {/* Description */}
-              <div className="space-y-2">
-                <Label htmlFor="description">Descripción</Label>
-                <Textarea
-                  id="description"
-                  rows={4}
-                  value={formData.description}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  placeholder="Describe las reglas y detalles del torneo"
-                />
-              </div>
-
-              {/* Game Selection */}
-              <div className="space-y-2">
-                <Label htmlFor="game">
-                  Juego <span className="text-destructive">*</span>
-                </Label>
-                <Select
-                  required
-                  value={formData.game_id}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, game_id: value })
-                  }
+        <QueryStatusHandler queries={[gamesQuery]} hideNoDataMessage>
+          <MutationStatusHandler mutations={[createMutation]}>
+            <Card>
+              <CardHeader>
+                <CardTitle>Información del Torneo</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  className="space-y-6"
                 >
-                  <SelectTrigger id="game">
-                    <SelectValue placeholder="Selecciona un juego" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {gamesLoading ? (
-                      <SelectItem value="loading" disabled>
-                        Cargando juegos...
-                      </SelectItem>
-                    ) : games && games.length > 0 ? (
-                      games.map((game) => (
-                        <SelectItem key={game.id} value={game.id.toString()}>
-                          {game.name} ({game.type})
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="none" disabled>
-                        No hay juegos disponibles
-                      </SelectItem>
+                  {/* Tournament Name */}
+                  <form.AppField name="name">
+                    {(field) => (
+                      <field.TextField
+                        label={<>Nombre del Torneo </>}
+                        schema={tournamentCreateSchema}
+                        inputProps={{
+                          placeholder: "Ej: Copa de Primavera 2025",
+                          maxLength: 200,
+                        }}
+                      />
                     )}
-                  </SelectContent>
-                </Select>
-              </div>
+                  </form.AppField>
 
-              {/* Dates */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="start_date"
-                    className="flex items-center gap-2"
-                  >
-                    <Calendar className="w-4 h-4" />
-                    Fecha de Inicio
-                  </Label>
-                  <Input
-                    id="start_date"
-                    type="datetime-local"
-                    value={formData.start_date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, start_date: e.target.value })
-                    }
-                  />
-                </div>
+                  {/* Description */}
+                  <form.AppField name="description">
+                    {(field) => (
+                      <field.TextareaField
+                        label="Descripción"
+                        schema={tournamentCreateSchema}
+                        textareaProps={{
+                          rows: 4,
+                          placeholder:
+                            "Describe las reglas y detalles del torneo",
+                        }}
+                      />
+                    )}
+                  </form.AppField>
 
-                <div className="space-y-2">
-                  <Label htmlFor="end_date" className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    Fecha de Finalización
-                  </Label>
-                  <Input
-                    id="end_date"
-                    type="datetime-local"
-                    value={formData.end_date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, end_date: e.target.value })
-                    }
-                    min={formData.start_date}
-                  />
-                </div>
-              </div>
+                  {/* Game Selection */}
+                  <form.AppField name="game_id">
+                    {(field) => (
+                      <field.ComboboxSingleSelectionField
+                        label={<>Juego</>}
+                        schema={tournamentCreateSchema}
+                        options={
+                          gamesQuery.data?.map((game) => ({
+                            value: game.id.toString(),
+                            label: `${game.name} (${game.type})`,
+                          })) ?? []
+                        }
+                        placeholder="Selecciona un juego"
+                      />
+                    )}
+                  </form.AppField>
 
-              {/* Max Participants */}
-              <div className="space-y-2">
-                <Label htmlFor="max_participants">
-                  Máximo de Participantes
-                </Label>
-                <Input
-                  id="max_participants"
-                  type="number"
-                  min="2"
-                  value={formData.max_participants}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      max_participants: e.target.value,
-                    })
-                  }
-                  placeholder="Dejar vacío para ilimitado"
-                />
-                <p className="text-sm text-muted-foreground">
-                  Dejar vacío para no tener límite de participantes
-                </p>
-              </div>
+                  {/* Dates */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <form.AppField name="start_date">
+                      {(field) => (
+                        <field.TextField
+                          label={
+                            <>
+                              <Calendar className="w-4 h-4 inline-block mr-2" />
+                              Fecha de Inicio
+                            </>
+                          }
+                          schema={tournamentCreateSchema}
+                          inputProps={{
+                            type: "datetime-local",
+                          }}
+                        />
+                      )}
+                    </form.AppField>
 
-              {/* Actions */}
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.back()}
-                  disabled={createMutation.isPending}
-                >
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? "Creando..." : "Crear Torneo"}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+                    <form.AppField name="end_date">
+                      {(field) => (
+                        <field.TextField
+                          label={
+                            <>
+                              <Calendar className="w-4 h-4 inline-block mr-2" />
+                              Fecha de Finalización
+                            </>
+                          }
+                          schema={tournamentCreateSchema}
+                          inputProps={{
+                            type: "datetime-local",
+                          }}
+                        />
+                      )}
+                    </form.AppField>
+                  </div>
+
+                  {/* Max Participants */}
+                  <form.AppField name="max_participants">
+                    {(field) => (
+                      <field.TextField
+                        label="Máximo de Participantes"
+                        schema={tournamentCreateSchema}
+                        inputProps={{
+                          type: "number",
+                          min: "2",
+                          placeholder:
+                            "Dejar vacío para no tener límite de participantes",
+                        }}
+                      />
+                    )}
+                  </form.AppField>
+
+                  <form.AppForm>
+                    <div className="flex justify-end gap-3 pt-4 border-t">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => router.back()}
+                        disabled={createMutation.isPending}
+                      >
+                        Cancelar
+                      </Button>
+                      <form.SubscribeButton label="Crear Torneo" />
+                    </div>
+                  </form.AppForm>
+                </form>
+              </CardContent>
+            </Card>
+          </MutationStatusHandler>
+        </QueryStatusHandler>
       </div>
     </div>
   );

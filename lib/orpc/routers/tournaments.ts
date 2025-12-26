@@ -176,6 +176,7 @@ export const tournamentsRouter = {
         id: z.number(),
         name: z.string().min(1).max(200).optional(),
         description: z.string().optional(),
+        game_id: z.number().optional(),
         start_date: z.string().optional(),
         end_date: z.string().optional(),
         max_participants: z.number().optional(),
@@ -219,7 +220,23 @@ export const tournamentsRouter = {
         });
       }
 
-      return result[0];
+      const tournament = result[0];
+
+      // Convert Tournament type to TournamentOutput (undefined -> null)
+      return {
+        id: tournament.id,
+        name: tournament.name,
+        description: tournament.description ?? null,
+        game_id: tournament.game_id,
+        start_date: tournament.start_date?.toISOString() ?? null,
+        end_date: tournament.end_date?.toISOString() ?? null,
+        max_participants: tournament.max_participants ?? null,
+        creator_id: tournament.creator_id,
+        state: tournament.state,
+        url_image: tournament.url_image ?? null,
+        creation_date: tournament.creation_date.toISOString(),
+        modification_date: tournament.modification_date.toISOString(),
+      };
     }),
 
   // Authenticated: Join tournament
@@ -313,5 +330,40 @@ export const tournamentsRouter = {
       ]);
 
       return result.map((row) => row.out_participant);
+    }),
+
+  // Admin: Delete tournament
+  delete: authedMiddleware
+    .route({
+      method: "DELETE",
+      path: "/tournaments/{id}",
+      summary: "Eliminar torneo",
+      description: "Eliminar un torneo (solo admin)",
+      tags: ["tournaments", "admin"],
+    })
+    .input(z.object({ id: z.number() }))
+    .output(
+      z.object({
+        success: z.boolean(),
+        message: z.string(),
+      }),
+    )
+    .handler(async ({ input }) => {
+      // Delete tournament and cascade related data
+      const result = await query<Tournament>(
+        `DELETE FROM tournament WHERE id = $1 RETURNING *`,
+        [input.id],
+      );
+
+      if (result.length === 0) {
+        throw new ORPCError("NOT_FOUND", {
+          message: "Torneo no encontrado",
+        });
+      }
+
+      return {
+        success: true,
+        message: "Torneo eliminado exitosamente",
+      };
     }),
 };
