@@ -75,8 +75,7 @@ export const usersRouter = {
           offset: z.number().optional().default(0),
           status: z.boolean().optional(),
         })
-        .optional()
-        .default({}),
+        .default({ limit: 50, offset: 0 }),
     )
     .output(
       z.array(
@@ -92,7 +91,7 @@ export const usersRouter = {
           ]),
           url_image: z.string().nullable(),
           creation_date: z.string(),
-          modification_date: z.string().nullable(),
+          modification_date: z.string(),
           role: z.object({
             id: z.number(),
             name: z.string(),
@@ -112,7 +111,7 @@ export const usersRouter = {
           state: "active" | "suspended" | "banned" | "pending_verification";
           url_image: string | null;
           creation_date: string;
-          modification_date: string | null;
+          modification_date: string;
           role: {
             id: number;
             name: string;
@@ -150,7 +149,7 @@ export const usersRouter = {
         ]),
         url_image: z.string().nullable(),
         creation_date: z.string(),
-        modification_date: z.string().nullable(),
+        modification_date: z.string(),
         role: z.object({
           id: z.number(),
           name: z.string(),
@@ -168,7 +167,7 @@ export const usersRouter = {
           state: "active" | "suspended" | "banned" | "pending_verification";
           url_image: string | null;
           creation_date: string;
-          modification_date: string | null;
+          modification_date: string;
           role: {
             id: number;
             name: string;
@@ -218,7 +217,7 @@ export const usersRouter = {
         ]),
         url_image: z.string().nullable(),
         creation_date: z.string(),
-        modification_date: z.string().nullable(),
+        modification_date: z.string(),
         persona_id: z.number().nullable(),
         access_code_hash: z.string(),
       }),
@@ -251,7 +250,7 @@ export const usersRouter = {
         state: "active" | "suspended" | "banned" | "pending_verification";
         url_image: string | null;
         creation_date: string;
-        modification_date: string | null;
+        modification_date: string;
         persona_id: number | null;
         access_code_hash: string;
       }>(
