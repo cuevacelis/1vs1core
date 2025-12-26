@@ -1,9 +1,11 @@
 "use client";
 
+import { useDebouncer } from "@tanstack/react-pacer";
 import { LoaderIcon, Search as SearchIcon, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Activity, useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { cleanEmptyParams } from "@/lib/utils/search-utils";
 import {
   InputGroup,
   InputGroupAddon,
@@ -13,6 +15,7 @@ import {
 import { Kbd, KbdGroup } from "../ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { ErrorMessage } from "../validate/message/error-message";
+import { useKeyboardShortcut } from "./hooks/use-keyboard-shortcut";
 
 interface SearchProps {
   isShowIcon?: boolean;
@@ -25,100 +28,6 @@ interface SearchProps {
   value?: string;
   onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
   shouldFocus?: boolean;
-}
-
-/**
- * Custom debounce hook for Next.js
- */
-function useDebounce<T extends (...args: Parameters<T>) => void>(
-  callback: T,
-  delay: number,
-) {
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const callbackRef = useRef(callback);
-
-  useEffect(() => {
-    callbackRef.current = callback;
-  }, [callback]);
-
-  const debouncedCallback = useCallback(
-    (...args: Parameters<T>) => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-
-      timeoutRef.current = setTimeout(() => {
-        callbackRef.current(...args);
-      }, delay);
-    },
-    [delay],
-  );
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  return debouncedCallback;
-}
-
-/**
- * Custom keyboard shortcut hook
- */
-function useKeyboardShortcut({
-  key,
-  callback,
-  modifiers = {},
-}: {
-  key: string;
-  callback: () => void;
-  modifiers?: {
-    ctrl?: boolean;
-    meta?: boolean;
-    shift?: boolean;
-    alt?: boolean;
-  };
-}) {
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const { ctrl, meta, shift, alt } = modifiers;
-
-      const ctrlMatch = ctrl ? event.ctrlKey : true;
-      const metaMatch = meta ? event.metaKey : true;
-      const shiftMatch = shift ? event.shiftKey : !event.shiftKey;
-      const altMatch = alt ? event.altKey : !event.altKey;
-
-      // For Ctrl+K or Cmd+K, we want either ctrl OR meta to be pressed
-      const modifierMatch =
-        ctrl || meta
-          ? (event.ctrlKey || event.metaKey) && shiftMatch && altMatch
-          : ctrlMatch && metaMatch && shiftMatch && altMatch;
-
-      if (event.key.toLowerCase() === key.toLowerCase() && modifierMatch) {
-        event.preventDefault();
-        callback();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [key, callback, modifiers]);
-}
-
-/**
- * Clean empty params from search params object
- */
-function cleanEmptyParams(
-  params: Record<string, string | undefined>,
-): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(params).filter(
-      ([, value]) => value !== undefined && value !== "",
-    ),
-  ) as Record<string, string>;
 }
 
 export function SearchBar({
@@ -141,7 +50,7 @@ export function SearchBar({
   const [error, setError] = useState<Error | null>(null);
 
   const handleDebouncedSearch = useCallback(
-    (value: string) => {
+    async (value: string) => {
       setIsLoading(true);
       try {
         // Get current search params
@@ -156,7 +65,7 @@ export function SearchBar({
 
         // Clean empty params
         const cleanedParams = cleanEmptyParams(
-          Object.fromEntries(params.entries()),
+          Object.fromEntries(params.entries())
         );
 
         // Build new URL with cleaned params
@@ -175,16 +84,17 @@ export function SearchBar({
         setIsLoading(false);
       }
     },
-    [router, searchParams, searchParamKey],
+    [router, searchParams, searchParamKey]
   );
 
-  const debouncedSearch = useDebounce(handleDebouncedSearch, wait);
+  // Use TanStack Pacer for debouncing
+  const searchDebouncer = useDebouncer(handleDebouncedSearch, { wait });
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = event.target.value;
     setSearchValue(newValue);
     controlledOnChange?.(event);
-    debouncedSearch(newValue);
+    searchDebouncer.maybeExecute(newValue);
   };
 
   const handleClearSearch = () => {
@@ -194,6 +104,11 @@ export function SearchBar({
     } as React.ChangeEvent<HTMLInputElement>;
     handleSearchChange(syntheticEvent);
   };
+
+  // Cancel debouncer on unmount
+  useEffect(() => {
+    return () => searchDebouncer.cancel();
+  }, [searchDebouncer]);
 
   // Sync with controlled value if provided
   useEffect(() => {
@@ -218,7 +133,7 @@ export function SearchBar({
     <section
       className={cn(
         "flex flex-col w-auto lg:w-md items-start space-x-2",
-        className,
+        className
       )}
     >
       <div className="relative w-full">
