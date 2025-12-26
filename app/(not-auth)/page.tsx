@@ -1,9 +1,10 @@
 "use client";
 
-import { Sparkles, Trophy } from "lucide-react";
+import { CheckCircle2, Sparkles, Trophy, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { MutationStatusHandler } from "@/components/request-status/mutation-status-handler";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -23,7 +24,6 @@ export default function Home() {
     try {
       await loginMutation.mutateAsync({ accessCode: accessCode.trim() });
       router.push("/dashboard");
-      router.refresh();
     } catch (err) {
       console.error("Login error:", err);
     }
@@ -85,14 +85,42 @@ export default function Home() {
                         setAccessCode(e.target.value.toUpperCase())
                       }
                       required
-                      disabled={loginMutation.isPending}
+                      disabled={
+                        loginMutation.isPending || loginMutation.isSuccess
+                      }
                       className="h-12 text-base font-mono tracking-wider"
                       autoComplete="off"
                       autoFocus
                     />
-                    <p className="text-xs text-muted-foreground mt-1.5">
-                      El código debe ser proporcionado por un administrador
-                    </p>
+
+                    {/* Success Message */}
+                    {loginMutation.isSuccess && (
+                      <Alert className="border-green-500/50 bg-green-50 dark:bg-green-950/20">
+                        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" />
+                        <AlertDescription className="text-green-700 dark:text-green-400 ml-2">
+                          Acceso verificado correctamente. Redirigiendo al
+                          dashboard...
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {/* Error Message */}
+                    {loginMutation.isError && (
+                      <Alert className="border-destructive/50 bg-destructive/10">
+                        <XCircle className="h-4 w-4 text-destructive" />
+                        <AlertDescription className="text-destructive ml-2">
+                          {loginMutation.error?.message ||
+                            "Código de acceso inválido. Por favor, verifica e intenta nuevamente."}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {/* Helper Text - Only show when not in error or success state */}
+                    {!loginMutation.isError && !loginMutation.isSuccess && (
+                      <p className="text-xs text-muted-foreground mt-1.5">
+                        El código debe ser proporcionado por un administrador
+                      </p>
+                    )}
                   </div>
 
                   <Button
