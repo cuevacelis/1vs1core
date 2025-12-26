@@ -216,10 +216,6 @@ export const usersRouter = {
           "pending_verification",
         ]),
         url_image: z.string().nullable(),
-        creation_date: z.string(),
-        modification_date: z.string(),
-        persona_id: z.number().nullable(),
-        access_code_hash: z.string(),
       }),
     )
     .handler(async ({ input }) => {
@@ -249,14 +245,10 @@ export const usersRouter = {
         short_name: string | null;
         state: "active" | "suspended" | "banned" | "pending_verification";
         url_image: string | null;
-        creation_date: string;
-        modification_date: string;
-        persona_id: number | null;
-        access_code_hash: string;
       }>(
         `UPDATE users SET ${setClause.join(
           ", ",
-        )} WHERE id = $${paramIndex} RETURNING *`,
+        )} WHERE id = $${paramIndex} RETURNING id, name, short_name, state, url_image`,
         values,
       );
 
@@ -377,6 +369,76 @@ export const usersRouter = {
       if (result.length === 0) return null;
 
       return result[0].out_profile;
+    }),
+
+  updateMe: authedMiddleware
+    .route({
+      method: "PATCH",
+      path: "/users/me",
+      summary: "Actualizar mi perfil",
+      description:
+        "Actualizar nombre y nombre corto del usuario autenticado actual",
+      tags: ["users"],
+    })
+    .input(
+      z.object({
+        name: z.string().min(1).max(100).optional(),
+        short_name: z.string().max(50).optional(),
+      }),
+    )
+    .output(
+      z.object({
+        id: z.number(),
+        name: z.string(),
+        short_name: z.string().nullable(),
+      }),
+    )
+    .handler(async ({ input, context }) => {
+      const userId = context?.session?.userId;
+      const { name, short_name } = input;
+
+      // Validate that at least one field is provided
+      if (name === undefined && short_name === undefined) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Debe proporcionar al menos un campo para actualizar",
+        });
+      }
+
+      // Build dynamic UPDATE query
+      const setClause: string[] = [];
+      const values: (string | number | null)[] = [];
+      let paramIndex = 1;
+
+      if (name !== undefined) {
+        setClause.push(`name = $${paramIndex}`);
+        values.push(name);
+        paramIndex++;
+      }
+
+      if (short_name !== undefined) {
+        setClause.push(`short_name = $${paramIndex}`);
+        // Convert empty string to null for database consistency
+        values.push(short_name === "" ? null : short_name);
+        paramIndex++;
+      }
+
+      values.push(userId);
+      const result = await query<{
+        id: number;
+        name: string;
+        short_name: string | null;
+      }>(
+        `UPDATE users SET ${setClause.join(", ")} WHERE id = $${paramIndex} RETURNING id, name, short_name`,
+        values,
+      );
+
+      if (result.length === 0) {
+        throw new ORPCError("NOT_FOUND", {
+          message: "Usuario no encontrado",
+        });
+      }
+
+      return result[0];
     }),
 
   myStats: authedMiddleware

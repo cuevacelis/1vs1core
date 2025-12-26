@@ -2009,6 +2009,175 @@ export function EditTournamentForm({ tournamentId }: { tournamentId: number }) {
 - 🔴 **NEVER** use plain `const defaultValues = { ... }` without type annotation
 - 🔴 **NEVER** use `any` or `unknown` for default values type
 
+### TanStack Form Pattern with useAppForm (RECOMMENDED)
+
+**CRITICAL**: This project uses a custom `useAppForm` hook that integrates TanStack Form with type-safe field components. This is the RECOMMENDED pattern for all forms in the application.
+
+**Hook Location**: `components/form/hooks/use-form.ts`
+
+**Pattern Structure**:
+
+1. **Create Schema File** (`schemas/[entity]-[action].schema.ts`):
+
+```typescript
+import z from "zod";
+
+export const profileEditSchema = z.object({
+  name: z
+    .string()
+    .min(1, "El nombre es requerido")
+    .max(100, "El nombre no puede exceder 100 caracteres"),
+  short_name: z
+    .string()
+    .max(50, "El nombre corto no puede exceder 50 caracteres")
+    .optional(),
+});
+
+export type ProfileEditFormData = z.infer<typeof profileEditSchema>;
+```
+
+2. **Form Component Pattern**:
+
+```typescript
+"use client";
+
+import { revalidateLogic } from "@tanstack/react-form";
+import { useEffect } from "react";
+import type { z } from "zod";
+import { useAppForm } from "@/components/form/hooks/use-form";
+import { MutationStatusHandler } from "@/components/request-status/mutation-status-handler";
+import { Button } from "@/components/ui/button";
+import { profileEditSchema } from "./schemas/profile-edit.schema";
+import { useUpdateProfileMutation } from "./services/use-update-profile.mutation";
+
+export function EditProfileForm({ currentName, currentShortName }) {
+  const updateProfileMutation = useUpdateProfileMutation();
+
+  // Define default values with type inference from schema
+  const defaultValues: z.input<typeof profileEditSchema> = {
+    name: currentName,
+    short_name: currentShortName ?? "",
+  };
+
+  // Initialize form with TanStack Form
+  const form = useAppForm({
+    defaultValues,
+    validationLogic: revalidateLogic({
+      mode: "submit",
+      modeAfterSubmission: "change",
+    }),
+    validators: {
+      onDynamic: profileEditSchema,
+    },
+    onSubmit: async ({ value }) => {
+      updateProfileMutation.mutate(
+        {
+          name: value.name,
+          short_name: value.short_name || undefined,
+        },
+        {
+          onSuccess: () => {
+            // Handle success
+          },
+        },
+      );
+    },
+  });
+
+  // Reset form when data changes
+  useEffect(() => {
+    if (currentName) {
+      form.reset();
+    }
+  }, [currentName, form]);
+
+  return (
+    <div>
+      <MutationStatusHandler mutations={[updateProfileMutation]} />
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        className="space-y-4"
+      >
+        {/* Name Field */}
+        <form.AppField name="name">
+          {(field) => (
+            <field.TextField
+              label="Nombre"
+              schema={profileEditSchema}
+              inputProps={{
+                placeholder: "Ingresa tu nombre completo",
+                maxLength: 100,
+              }}
+            />
+          )}
+        </form.AppField>
+
+        {/* Short Name Field */}
+        <form.AppField name="short_name">
+          {(field) => (
+            <field.TextField
+              label="Nombre Corto"
+              schema={profileEditSchema}
+              inputProps={{
+                placeholder: "Ingresa tu nombre corto (opcional)",
+                maxLength: 50,
+              }}
+            />
+          )}
+        </form.AppField>
+
+        <form.AppForm>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button type="button" variant="outline" onClick={handleCancel}>
+              Cancelar
+            </Button>
+            <form.SubscribeButton label="Guardar cambios" />
+          </div>
+        </form.AppForm>
+      </form>
+    </div>
+  );
+}
+```
+
+**Available Field Components** (via `form.AppField`):
+- `field.TextField` - Standard text input
+- `field.TextareaField` - Multiline text input
+- `field.CheckBoxField` - Checkbox input
+- `field.ComboboxSingleSelectionField` - Searchable single-select dropdown
+- `field.RadioGroupField` - Radio button group
+- `field.CardSelectionField` - Card-based selection
+
+**Available Form Components** (via `form.AppForm`):
+- `form.SubscribeButton` - Submit button that automatically disables during submission
+- `form.ResetButton` - Reset button that clears form to default values
+
+**Key Benefits**:
+- ✅ **Full Type Safety**: Field names are type-checked against schema
+- ✅ **Automatic Validation**: Validates on submit, then on change after first submission
+- ✅ **Built-in Components**: Access to all form field components via `field.*`
+- ✅ **Smart Submit Button**: `SubscribeButton` automatically handles pending state
+- ✅ **No Manual Field Wiring**: No need to manually connect `form`, `name`, `schema` props
+- ✅ **Required Field Indicators**: Automatic asterisks based on schema (via `useFieldOptionalityCheck`)
+
+**Rules**:
+- 🟢 **ALWAYS** use `useAppForm` instead of raw `useForm` from TanStack Form
+- 🟢 **ALWAYS** use `validators.onDynamic` with the Zod schema (NOT `validators.onChange`)
+- 🟢 **ALWAYS** use `revalidateLogic({ mode: "submit", modeAfterSubmission: "change" })` for validation timing
+- 🟢 **ALWAYS** wrap form in `<form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); }}>`
+- 🟢 **ALWAYS** use `form.AppField` render prop pattern for fields
+- 🟢 **ALWAYS** wrap submit buttons in `<form.AppForm>` wrapper
+- 🟢 **ALWAYS** use `form.SubscribeButton` instead of manual submit button (it handles pending state automatically)
+- 🔴 **NEVER** use `zodValidator()` adapter - it's not needed with `useAppForm`
+- 🔴 **NEVER** manually add `form`, `name`, `schema` props to field components when using `form.AppField`
+- 🔴 **NEVER** use `validators.onChange` - use `validators.onDynamic` instead
+
+**Complete Example Reference**: See `app/(auth)/usuario/[id]/editar/page.tsx` for a full working example.
+
 **Anti-Pattern (WRONG)**:
 
 ```typescript

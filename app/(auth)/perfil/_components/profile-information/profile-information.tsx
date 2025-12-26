@@ -1,9 +1,11 @@
 "use client";
 
-import { Mail, Shield, User as UserIcon } from "lucide-react";
+import { Mail, Pencil, Shield, User as UserIcon } from "lucide-react";
+import { useState } from "react";
 import { QueryStatusHandler } from "@/components/request-status/query-status-handler";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -14,12 +16,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { EditProfileForm } from "./edit-profile-form";
 import { ProfileInformationEmpty } from "./empity-state/profile-information-empty";
 import { ProfileInformationLoading } from "./loading/profile-information-loading";
 import { useUserProfileQuery } from "./services/use-user-profile.query";
 
 export function ProfileInformation() {
   const profileQuery = useUserProfileQuery();
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const profile = profileQuery.data;
 
@@ -28,8 +32,8 @@ export function ProfileInformation() {
       ? `${profile.person.first_name} ${profile.person.paternal_last_name}`
       : profile?.name || "Nombre de Usuario";
 
-  const shortName = profile?.short_name || "N/A";
-  const roleName = profile?.role?.name || "Jugador";
+  const shortName = profile?.short_name ?? "";
+  const roleName = profile?.role?.name;
   const isActive = profile?.state === "active";
 
   const firstInitial =
@@ -45,6 +49,13 @@ export function ProfileInformation() {
       customLoadingComponent={<ProfileInformationLoading />}
       emptyStateComponent={<ProfileInformationEmpty />}
     >
+      <EditProfileForm
+        open={editDialogOpen}
+        setOpen={setEditDialogOpen}
+        currentName={profile?.name ?? ""}
+        currentShortName={profile?.short_name ?? null}
+      />
+
       <Card className="overflow-hidden">
         <CardHeader className="bg-linear-to-r from-primary/10 via-primary/5 to-background pb-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
@@ -74,6 +85,17 @@ export function ProfileInformation() {
                 {roleName}
               </CardDescription>
             </div>
+
+            {/* Edit Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setEditDialogOpen(true)}
+            >
+              <Pencil className="h-4 w-4" />
+              Editar
+            </Button>
           </div>
         </CardHeader>
 
@@ -87,10 +109,10 @@ export function ProfileInformation() {
               </h3>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="display-name">Nombre Completo</Label>
+                  <Label htmlFor="name">Nombre</Label>
                   <Input
-                    id="display-name"
-                    value={displayName}
+                    id="name"
+                    value={profile?.name ?? ""}
                     disabled
                     className="bg-muted/50"
                   />
