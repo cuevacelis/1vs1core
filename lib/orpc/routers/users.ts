@@ -69,11 +69,14 @@ export const usersRouter = {
       tags: ["users", "admin"],
     })
     .input(
-      z.object({
-        limit: z.number().default(50),
-        offset: z.number().default(0),
-        status: z.boolean().optional(),
-      }),
+      z
+        .object({
+          limit: z.number().optional().default(50),
+          offset: z.number().optional().default(0),
+          status: z.boolean().optional(),
+        })
+        .optional()
+        .default({}),
     )
     .output(
       z.array(
@@ -99,6 +102,7 @@ export const usersRouter = {
       ),
     )
     .handler(async ({ input }) => {
+      console.log("users.list handler - input:", input);
       const { limit, offset, status } = input;
       const result = await query<{
         out_user: {

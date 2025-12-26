@@ -5,9 +5,9 @@ import {
   IconLogout,
   IconUserCircle,
 } from "@tabler/icons-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-
 import { useUserMeQuery } from "@/components/services/use-user-me.query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -38,6 +38,7 @@ interface UserProfile {
 export function NavUser() {
   const { isMobile } = useSidebar();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
 
   // Get current user data
@@ -47,6 +48,7 @@ export function NavUser() {
     setIsLoggingOut(true);
     try {
       await client.auth.logout();
+      queryClient.clear();
       router.push("/");
       router.refresh();
     } catch (error) {

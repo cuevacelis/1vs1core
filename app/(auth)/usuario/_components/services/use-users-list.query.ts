@@ -35,7 +35,7 @@ export function useUsersListQuery(
 ) {
   return useQuery(
     orpc.users.list.queryOptions({
-      input: params || {},
+      input: params ?? {},
       enabled: config?.enabled,
       staleTime: config?.staleTime ?? 30 * 1000, // 30 seconds default
       gcTime: config?.gcTime,
