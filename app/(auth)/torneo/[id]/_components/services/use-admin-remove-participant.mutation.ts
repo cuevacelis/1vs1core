@@ -11,7 +11,7 @@ export function useAdminRemoveParticipantMutation() {
     onSuccess: () => {
       // Invalidate participants list to refresh
       queryClient.invalidateQueries({
-        queryKey: orpc.tournaments.getParticipants.queryKey(),
+        queryKey: orpc.tournaments.getParticipants.key(),
       });
     },
   });
