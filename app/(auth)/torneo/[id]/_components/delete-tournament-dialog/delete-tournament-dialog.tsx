@@ -45,17 +45,16 @@ export function DeleteTournamentDialog({
   };
 
   return (
-    <>
-      <MutationStatusHandler mutations={[deleteMutation]} />
-      <AlertDialog open={open} onOpenChange={onOpenChange}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-full bg-destructive/10">
-                <AlertTriangle className="h-6 w-6 text-destructive" />
-              </div>
-              <AlertDialogTitle>¿Eliminar torneo?</AlertDialogTitle>
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-full bg-destructive/10">
+              <AlertTriangle className="h-6 w-6 text-destructive" />
             </div>
+            <AlertDialogTitle>¿Eliminar torneo?</AlertDialogTitle>
+          </div>
+          <MutationStatusHandler mutations={[deleteMutation]}>
             <AlertDialogDescription className="pt-4">
               Estás a punto de eliminar el torneo{" "}
               <span className="font-semibold text-foreground">
@@ -69,22 +68,22 @@ export function DeleteTournamentDialog({
                 <li>Toda la información del torneo</li>
               </ul>
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              disabled={deleteMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              {deleteMutation.isPending ? "Eliminando..." : "Eliminar torneo"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+          </MutationStatusHandler>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={deleteMutation.isPending}>
+            Cancelar
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDelete}
+            disabled={deleteMutation.isPending}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            {deleteMutation.isPending ? "Eliminando..." : "Eliminar torneo"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

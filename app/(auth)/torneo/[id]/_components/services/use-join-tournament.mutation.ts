@@ -26,10 +26,10 @@ export function useJoinTournamentMutation() {
     onSuccess: () => {
       // Invalidate tournament participants and details queries
       queryClient.invalidateQueries({
-        queryKey: orpc.tournaments.getParticipants.queryKey(),
+        queryKey: orpc.tournaments.getParticipants.key(),
       });
       queryClient.invalidateQueries({
-        queryKey: orpc.tournaments.getById.queryKey(),
+        queryKey: orpc.tournaments.getById.key(),
       });
     },
   });

@@ -4,13 +4,13 @@ import { Calendar, Pencil, Trophy, Users } from "lucide-react";
 import Link from "next/link";
 import { QueryStatusHandler } from "@/components/request-status/query-status-handler";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { TournamentInfoEmpty } from "./empity-state/tournament-info-empty";
-import { TournamentInfoLoading } from "./loading/tournament-info-loading";
 import { useTournamentDetailQuery } from "../services/use-tournament-detail.query";
 import { useTournamentParticipantsQuery } from "../services/use-tournament-participants.query";
+import { TournamentInfoEmpty } from "./empity-state/tournament-info-empty";
+import { TournamentInfoLoading } from "./loading/tournament-info-loading";
 import { useUserMeQuery } from "./services/use-user-me.query";
 
 interface TournamentInfoProps {
@@ -45,7 +45,7 @@ export function TournamentInfo({
   );
 
   // Check if user is admin
-  const isAdmin = user?.roles?.some((role) => role.name === "admin") ?? false;
+  const isAdmin = user?.role.name === "admin";
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Por definir";
@@ -166,7 +166,13 @@ interface InfoItemProps {
   highlight?: "destructive" | "success";
 }
 
-function InfoItem({ icon: Icon, label, value, subtitle, highlight }: InfoItemProps) {
+function InfoItem({
+  icon: Icon,
+  label,
+  value,
+  subtitle,
+  highlight,
+}: InfoItemProps) {
   return (
     <div className="flex items-start gap-3">
       <div className="mt-0.5">
